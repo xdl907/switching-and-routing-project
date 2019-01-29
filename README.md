@@ -1,2 +1,12 @@
 # project-5
-Packet classification B - Geometric algorithm. Design a set of packet classification rules based on source IP, destination IP, protocol, source port, destination port and action. Implement linear search classification algorithm and geometric classification algorithm. Measure performance parameters of different algorithms [§ 3]
+## Traffic Load Balancing
+
+Design a multipath network where there are multiple paths from
+one switch to another. Implement an algorithm to load balance the
+traffic based on link parameters or load on a switch. Measure the
+utilization and performance of the network. For load‐balancing
+algorithms it may be interesting (but not compulsory) to read § 14.
+
+### Template: sar_application_SDN.py
+
+### Source: http://ryu.readthedocs.io/en/latest/getting_started.html

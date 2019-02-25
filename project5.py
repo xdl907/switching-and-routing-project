@@ -79,12 +79,28 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.lookup = {}
 		self.i=0
 		self.GLOBAL_VARIABLE = 0
+		
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
 	def switch_features_handler(self, ev):
 		datapath = ev.msg.datapath
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
+		
+	    in_port = msg.match['in_port']
+		pkt = packet.Packet(msg.data)
+		eth = pkt.get_protocols(ethernet.ethernet)[0]
+		mpls = pkt.get_protocols(mpls.mpls)
+		
+		labeldfl = 1000
+		labelbackup = 2000
+
+		if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+			  ignore lldp packet
+			return
+		dst = eth.dst
+		src = eth.src
+		dpid = datapath.id 
 
 		# install table-miss flow entry
 		#
@@ -97,6 +113,26 @@ class ZodiacSwitch(app_manager.RyuApp):
 		actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,ofproto.OFPCML_NO_BUFFER)]
 											
 		self.add_flow(datapath, 0, match, actions)
+		
+		
+		
+		if switch_id == 1:
+		    match_1 = parser.OFPMatch(in_port=1, eth_src=, eth_dst=dst, ip_src=, ip_dst=)
+		    actions_1 = [parser.OFPActionPushMpls(),
+				         parser.OFPActionSetField(mpls_label=labeldfl)
+		                 datapath.ofproto_parser.OFPActionOutput(2)]
+		    self.add_flow(datapath, 1, match_1, actions_1)
+		    
+		    match_2 = parser.OFPMatch(in_port=1, eth_src=src, eth_dst=dst, ip_src=, ip_dst=)
+		    actions_2 = [parser.OFPActionPushMpls(),
+				         parser.OFPActionSetField(mpls_label=labelbackup)
+		                 datapath.ofproto_parser.OFPActionOutput(3)]
+		    self.add_flow(datapath, 2, match_2, actions_2)
+		    
+		    match_1 = parser.OFPMatch(in_port=2, eth_src=, eth_dst=, ip_src=, ip_dst=, )    
+		        parser.OFPActionPopMpls(),
+				parser.OFPActionSetField(eth_src=src),
+				parser.OFPActionSetField(eth_dst=dst),
 
 	def add_flow(self, datapath, priority, match, actions, buffer_id=None):
 		ofproto = datapath.ofproto

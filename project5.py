@@ -86,22 +86,28 @@ class ZodiacSwitch(app_manager.RyuApp):
 		datapath = ev.msg.datapath
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
+		dpid = datapath.id
+		in_port = msg.match['in_port']
 		
-	    in_port = msg.match['in_port']
+        # protocols parameters extraction
 		pkt = packet.Packet(msg.data)
 		eth = pkt.get_protocols(ethernet.ethernet)[0]
+		ipv4 = pkt.get_protocols(ipv4.ipv4)
 		mpls = pkt.get_protocols(mpls.mpls)
-		
-		labeldfl = 1000
-		labelbackup = 2000
 
+        # mpls labels
+		labeldfl_a = 1000
+		labeldfl_r = 1001
+		labelbackup_a = 2000
+		labelbackup_r = 2001
+		
+        #drop LLPD pkts
 		if eth.ethertype == ether_types.ETH_TYPE_LLDP:
 			  ignore lldp packet
 			return
 		dst = eth.dst
 		src = eth.src
-		dpid = datapath.id 
-
+		
 		# install table-miss flow entry
 		#
 		# We specify NO BUFFER to max_len of the output action due to
@@ -115,24 +121,79 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.add_flow(datapath, 0, match, actions)
 		
 		
-		
-		if switch_id == 1:
-		    match_1 = parser.OFPMatch(in_port=1, eth_src=, eth_dst=dst, ip_src=, ip_dst=)
+		# install mpls flow entries
+		if dpid == 1:
+		    match_1 = parser.OFPMatch(in_port=1, eth_src=eth1, eth_dst=eth2, ip_src=ip1, ip_dst=ip2)
 		    actions_1 = [parser.OFPActionPushMpls(),
-				         parser.OFPActionSetField(mpls_label=labeldfl)
+				         parser.OFPActionSetField(mpls_label=labeldfl_a)
 		                 datapath.ofproto_parser.OFPActionOutput(2)]
 		    self.add_flow(datapath, 1, match_1, actions_1)
 		    
-		    match_2 = parser.OFPMatch(in_port=1, eth_src=src, eth_dst=dst, ip_src=, ip_dst=)
+		    match_2 = parser.OFPMatch(in_port=1, eth_src=eth1, eth_dst=eth2, ip_src=ip1, ip_dst=ip2)
 		    actions_2 = [parser.OFPActionPushMpls(),
-				         parser.OFPActionSetField(mpls_label=labelbackup)
+				         parser.OFPActionSetField(mpls_label=labelbackup_a)
 		                 datapath.ofproto_parser.OFPActionOutput(3)]
 		    self.add_flow(datapath, 2, match_2, actions_2)
 		    
-		    match_1 = parser.OFPMatch(in_port=2, eth_src=, eth_dst=, ip_src=, ip_dst=, )    
-		        parser.OFPActionPopMpls(),
-				parser.OFPActionSetField(eth_src=src),
-				parser.OFPActionSetField(eth_dst=dst),
+		    match_3 = parser.OFPMatch(in_port=2, eth_src=eth2, eth_dst=eth1, mpls_label=labeldfl_r)    
+		    actions_3 = [parser.OFPActionPopMpls(),
+				         parser.OFPActionSetField(eth_src=src),
+				         parser.OFPActionSetField(eth_dst=dst),
+				         datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 1, match_3, actions_3)
+		    
+		    match_4 = parser.OFPMatch(in_port=3, eth_src=eth2, eth_dst=eth1, mpls_label=labelbackup_r )    
+		    actions_3 = [parser.OFPActionPopMpls(),
+				         parser.OFPActionSetField(eth_src=src),
+				         parser.OFPActionSetField(eth_dst=dst),
+				         datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 2, match_4, actions_4)
+		
+		if dpid == 2:
+		    match_1 = parser.OFPMatch(in_port=2, eth_src=eth1, eth_dst=eth2, mpls_label=labeldfl_a)
+		    actions_1 = [parser.OFPActionPopMpls(),
+				         parser.OFPActionSetField(eth_src=src),
+				         parser.OFPActionSetField(eth_dst=dst),
+				         datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 1, match_1, actions_1)
+		    
+		    match_2 = parser.OFPMatch(in_port=3, eth_src=eth1, eth_dst=eth2, mpls_label=labelbackup_a)
+		    actions_2 = [parser.OFPActionPopMpls(),
+				         parser.OFPActionSetField(eth_src=src),
+				         parser.OFPActionSetField(eth_dst=dst),
+				         datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 2, match_2, actions_2)
+		    
+		    match_3 = parser.OFPMatch(in_port=1, eth_src=eth2, eth_dst=eth1, ip_src=ip2, ip_dst=ip1)    
+		    actions_3 = [parser.OFPActionPushMpls(),
+				         parser.OFPActionSetField(mpls_label=labelbackup_r)
+		                 datapath.ofproto_parser.OFPActionOutput(2)]
+		    self.add_flow(datapath, 1, match_3, actions_3)
+		    
+		    match_4 = parser.OFPMatch(in_port=1, eth_src=eth2, eth_dst=eth1, ip_src=ip2, ip_dst=ip1)    
+		    actions_3 = [parser.OFPActionPushMpls(),
+				         parser.OFPActionSetField(mpls_label=labelbackup_r)
+		                 datapath.ofproto_parser.OFPActionOutput(3)]
+		    self.add_flow(datapath, 2, match_4, actions_4)
+		    
+		if dpid == 3:
+		    match_1 = parser.OFPMatch(in_port=1, mpls_label=labeldfl_a)
+		    actions_1 = [datapath.ofproto_parser.OFPActionOutput(2)]
+		    self.add_flow(datapath, 1, match_1, actions_1)
+		    
+		    match_1 = parser.OFPMatch(in_port=2, mpls_label=labeldfl_r)
+		    actions_1 = [datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 1, match_2, actions_2)
+		    
+		if dpid == 4:
+		    match_1 = parser.OFPMatch(in_port=1, mpls_label=labelbackup_a)
+		    actions_1 = [datapath.ofproto_parser.OFPActionOutput(2)]
+		    self.add_flow(datapath, 2, match_1, actions_1)
+		    
+		    match_1 = parser.OFPMatch(in_port=2, mpls_label=labelbackup_r)
+		    actions_1 = [datapath.ofproto_parser.OFPActionOutput(1)]
+		    self.add_flow(datapath, 2, match_2, actions_2)
+
 
 	def add_flow(self, datapath, priority, match, actions, buffer_id=None):
 		ofproto = datapath.ofproto

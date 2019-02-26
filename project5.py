@@ -301,15 +301,15 @@ class ZodiacSwitch(app_manager.RyuApp):
 					sport = str(udp_pkt.src_port)
 					dport = str(udp_pkt.dst_port)
 					
-		# mpls connection setup
-		labeldfl = self.assign_label()
+        # mpls connection setup
+        labeldfl = self.assign_label()
         labelbu = self.assignlabel()
-	    G = self.net
-	    dpid_dst = self.mac_to_dpid[dst]
-	    mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu)
-	    
-	    path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
-	    self.logger.info(path_list) 
+        G = self.net
+        dpid_dst = self.mac_to_dpid[dst]
+        mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu)
+        
+        path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
+        self.logger.info(path_list) 
 					
 				
 

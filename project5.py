@@ -300,33 +300,33 @@ class ZodiacSwitch(app_manager.RyuApp):
 					udp_pkt = pkt.get_protocol(udp.udp)
 					sport = str(udp_pkt.src_port)
 					dport = str(udp_pkt.dst_port)
-					
+
         # mpls connection setup
-        labeldfl = self.assign_label()
-        labelbu = self.assignlabel()
-        G = self.net
-        dpid_dst = self.mac_to_dpid[dst]
-        mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu)
+		labeldfl = self.assign_label()
+		labelbu = self.assignlabel()
+		G = self.net
+		dpid_dst = self.mac_to_dpid[dst]
+		mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu) #must verify
 
-        path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
-        self.logger.info(path_list) 
+		path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
+		self.logger.info(path_list) 
+						
 					
-				
-
-		    out_port = self.mac_to_port[dpid_src][src]
-			actions = [parser.OFPActionOutput(out_port)]
-			out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-			datapath.send_msg(out)
-				
-	  def assign_label(self):
-        if not self.label_list:
-            new_label = random.randint(1, 1000)
-        else:
-            new_label = random.randint(1, 1000)
-            while new_label in self.label_list:
-                new_label = random.randint(1, 1000)
-        self.label_list.append(new_label)
-        return new_label
+		#pkt forwarding
+		out_port = self.mac_to_port[dpid_src][src]
+		actions = [parser.OFPActionOutput(out_port)]
+		out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
+		datapath.send_msg(out)
+					
+	def assign_label(self):
+		if not self.label_list:
+			new_label = random.randint(1, 1000)
+		else:
+			new_label = random.randint(1, 1000)
+			while new_label in self.label_list:
+				new_label = random.randint(1, 1000)
+		self.label_list.append(new_label)
+		return new_label
 
 
 	@set_ev_cls(event.EventSwitchEnter)

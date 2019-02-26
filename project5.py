@@ -307,7 +307,7 @@ class ZodiacSwitch(app_manager.RyuApp):
         G = self.net
         dpid_dst = self.mac_to_dpid[dst]
         mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu)
-        
+
         path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
         self.logger.info(path_list) 
 					

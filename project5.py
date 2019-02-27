@@ -30,6 +30,7 @@ import networkx as nx
 import json
 import logging
 import struct
+import random
 import ipaddr
 from webob import Response
 from ryu.lib.mac import haddr_to_bin
@@ -79,6 +80,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.lookup = {}
 		self.i=0
 		self.GLOBAL_VARIABLE = 0
+		self.label_list = []
 		
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -86,7 +88,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		datapath = ev.msg.datapath
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
-		dpid = datapath.id
+		'''dpid = datapath.id
 		in_port = msg.match['in_port']
 		
         # protocols parameters extraction
@@ -96,7 +98,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		mpls = pkt.get_protocols(mpls.mpls)
 
 		dst = eth.dst
-		src = eth.src
+		src = eth.src'''
 		
 		# install table-miss flow entry
 		#
@@ -302,21 +304,21 @@ class ZodiacSwitch(app_manager.RyuApp):
 					dport = str(udp_pkt.dst_port)
 
         # mpls connection setup
-		labeldfl = self.assign_label()
-		labelbu = self.assignlabel()
-		G = self.net
-		dpid_dst = self.mac_to_dpid[dst]
-		mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu) #must verify
+			labeldfl = self.assign_label()
+			labelbu = self.assign_label()
+			G = self.net
+			#dpid_dst = self.mac_to_dpid[dst]
+			mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu) #must verify
 
-		path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
-		self.logger.info(path_list) 
+			path_list = list(nx.edge_disjoint_path(G, dpid_src, dpid_dst))
+			self.logger.info(path_list) 
 						
 					
-		#pkt forwarding
+		'''#pkt forwarding
 		out_port = self.mac_to_port[dpid_src][src]
 		actions = [parser.OFPActionOutput(out_port)]
 		out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-		datapath.send_msg(out)
+		datapath.send_msg(out)'''
 					
 	def assign_label(self):
 		if not self.label_list:

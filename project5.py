@@ -315,7 +315,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 			#mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu) #must verify
 
 			path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
-			self.logger.info(path_list) 
+			print("questa e' una prova %s" %(path_list[0][0])) 
 						
 					
 		'''#pkt forwarding

@@ -81,6 +81,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.i=0
 		self.GLOBAL_VARIABLE = 0
 		self.label_list = []
+		self.scrDst_list = []
+		self.mpls_conn_list = []
 		
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -179,6 +181,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 			return
 		dst = eth.dst
 		src = eth.src
+
 		dpid_src = datapath.id
 		
 		
@@ -307,15 +310,23 @@ class ZodiacSwitch(app_manager.RyuApp):
 					sport = str(udp_pkt.src_port)
 					dport = str(udp_pkt.dst_port)
 
-        # mpls connection setup
-			labeldfl = self.assign_label()
-			labelbu = self.assign_label()
-			G = self.net
-			dpid_dst = self.mac_to_dpid[dst]
-			#mpls_connections[dpid_src][dpid_dst] = (labeldfl, labelbu) #must verify
+        	# mpls connection setup
+			scrDst_list = [src, dst] #giusto senza self 
+			print scrDst_list
+			scrDst_list.sort()
 
-			path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
-			print("questa e' una prova %s" %(path_list[0][0])) 
+			if (hash((scrDst_list[0], scrDst_list[1])) not in self.mpls_conn_list): #verify if connection between the two host is already installed
+				self.mpls_conn_list.append(hash((scrDst_list[0], scrDst_list[1])))
+				self.logger.info(self.mpls_conn_list)
+
+				labeldfl = self.assign_label()
+				labelbu = self.assign_label()
+				G = self.net
+				dpid_dst = self.mac_to_dpid[dst]
+				
+				path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
+				self.logger.info(path_list) 
+
 						
 					
 		'''#pkt forwarding

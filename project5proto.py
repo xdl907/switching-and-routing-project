@@ -35,7 +35,7 @@ import ipaddr
 from webob import Response
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet.packet import Packet
-from ryu.lib.packet import arp
+from ryu.lib.packet import arp, mpls
 from ryu.lib.packet import ipv4
 from ryu.lib.packet import tcp
 from ryu.lib.packet import udp
@@ -74,6 +74,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.mac_to_port = {}
 		self.mac_to_dpid = {}
 		self.port_to_mac = {}
+		self.host_list = {}
 		self.ip_to_mac = {}
 		self.ip_to_mac[IP_ADDRESS_CONTROLLER] = '18:03:73:db:86:82'
 		self.port_occupied = {}
@@ -198,11 +199,13 @@ class ZodiacSwitch(app_manager.RyuApp):
 			
 		# MAC LEARNING-------------------------------------------------
 		
-		self.mac_to_port.setdefault(dpid_src, {})
-		self.port_to_mac.setdefault(dpid_src, {})
-		self.mac_to_port[dpid_src][src] = in_port
-		self.mac_to_dpid[src] = dpid_src
-		self.port_to_mac[dpid_src][in_port] = src
+		if src not in self.host_list:
+			self.host_list.append(src)
+			self.mac_to_port.setdefault(dpid_src, {})
+			self.port_to_mac.setdefault(dpid_src, {})
+			self.mac_to_port[dpid_src][src] = in_port
+			self.mac_to_dpid[src] = dpid_src
+			self.port_to_mac[dpid_src][in_port] = src
 
 
 		# HANDLE ARP PACKETS--------------------------------------------
@@ -352,43 +355,43 @@ class ZodiacSwitch(app_manager.RyuApp):
 				
 				
 				
-					# elif (i == (lenpath-1)):
-						# print ("Questo è i:%s" %(i))
-						# print ("Questo è dpid_dst:%s" %(dpid_dst))
-						# print ("Questo è nodopath:%s" %(path_list[0][i]))
-						# print (self.datapaths)
+					elif (i == (lenpath-1)): 
+						print ("Questo è i:%s" %(i))
+						print ("Questo è dpid_dst:%s" %(dpid_dst))
+						print ("Questo è nodopath:%s" %(path_list[0][i]))
+						print (self.datapaths)
 						
-						# if (path_list[0][i] == dpid_dst):
+						if (path_list[0][i] == dpid_dst):
 						
-							# print (self.datapaths)
-							# currentdatapath = self.datapaths[path_list[0][i]]
+							print (self.datapaths)
+							currentdatapath = self.datapaths[path_list[0][i]]
 						
 							#andata mpls dfl
-							# outport1 = self.net[dpid_src][dst]['port']
-							# match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl)
-							# actions1 = [parser.OFPActionPopMpls(),
-									# parser.OFPActionOutput(outport1)]
-							# self.add_flow(currentdatapath, 2, match1, actions1)
+							outport1 = self.mac_to_port[dpid_dst][dst]
+							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl)
+							actions1 = [parser.OFPActionPopMpls(),
+									parser.OFPActionOutput(outport1)]
+							self.add_flow(currentdatapath, 2, match1, actions1)
 						
 							#andata mpls bu
-							# match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu)
-							# self.add_flow(currentdatapath, 1, match2, actions1)
+							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu)
+							self.add_flow(currentdatapath, 1, match2, actions1)
 						
 							#ritorno mpls dfl
-							# outport2 = self.netpath_list[dpid_src][path_list[0][i-1]]['port']
-							# match3 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
-							# actions3 = [parser.OFPActionPushMpls(),
-									# parser.OFPActionSetField(mpls_label=labeldfl),
-									# parser.OFPActionOutput(outport2)]
-							# self.add_flow(currentdatapath, 2, match2, actions3)
+							outport2 = self.net[dpid_dst][path_list[0][i-1]]['port']
+							match3 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
+							actions3 = [parser.OFPActionPushMpls(),
+									parser.OFPActionSetField(mpls_label=labeldfl),
+									parser.OFPActionOutput(outport2)]
+							self.add_flow(currentdatapath, 2, match3, actions3)
 						
 							#ritorno mpls bu
-							# outport3 = self.netpath_list[dpid_src][path_list[1][i-1]]['port']
-							# match4 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
-							# actions4 = [parser.OFPActionPushMpls(),
-									# parser.OFPActionSetField(mpls_label=labelbu),
-									# parser.OFPActionOutput(outport3)]
-							# self.add_flow(currentdatapath, 1, match4, actions4)
+							outport3 = self.net[dpid_dst][path_list[1][i-1]]['port']
+							match4 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
+							actions4 = [parser.OFPActionPushMpls(),
+									parser.OFPActionSetField(mpls_label=labelbu),
+									parser.OFPActionOutput(outport3)]
+							self.add_flow(currentdatapath, 1, match4, actions4)
 			
 			
 						

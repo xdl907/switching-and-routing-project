@@ -1,0 +1,5 @@
+sudo mn --custom mininet/custom/topology.py --mac --topo mpls --controller=remote,ip=10.0.2.15,port=6633 --switch ovs,protocols=OpenFlow13
+
+
+PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/sar_application_SDN.py
+loading app ryu/ryu/app/sar_application_SDN.py

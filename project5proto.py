@@ -315,20 +315,21 @@ class ZodiacSwitch(app_manager.RyuApp):
 		
 				path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
 			
+				onepath = 0
 				if (len(path_list) == 1):
 					self.logger.info("Only default path installed")
 					onepath = 1
 				print("questa è una prova %s"%(path_list)) 
 			
-				lenpath = len(path_list[0])
-				for i in range(0, lenpath):
+				lenpath_dfl = len(path_list[0])
+				for i in range(0, lenpath_dfl):
 					if (i == 0):
 						if (path_list[0][i] == self.mac_to_dpid[src_MAC]):
 					
 							print (self.mac_to_dpid[src_MAC])
 							print ("Questa è la in_port di h1:%s" %(in_port))
 					
-							#andata mpls dfl
+							#andata mpls dfl nodo_src
 							outport1 = self.net[dpid_src][path_list[0][i+1]]['port']
 							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
 							actions1 = [parser.OFPActionPushMpls(),
@@ -336,7 +337,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 									parser.OFPActionOutput(outport1)]
 							self.add_flow(datapath, 2, match1, actions1)
 						
-							#andata mpls bu
+							#andata mpls bu nodo_src
 							outport2 = self.net[dpid_src][path_list[1][i+1]]['port']
 							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
 							actions2 = [parser.OFPActionPushMpls(),
@@ -344,13 +345,13 @@ class ZodiacSwitch(app_manager.RyuApp):
 									parser.OFPActionOutput(outport2)]
 							self.add_flow(datapath, 1, match2, actions2)
 						
-							#ritorno mpls dfl
+							#ritorno mpls dfl nodo_src
 							match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport1)
 							actions3 = [parser.OFPActionPopMpls(),
 									parser.OFPActionOutput(in_port)]
 							self.add_flow(datapath, 2, match3, actions3)
 						
-							#ritorno mpls bu
+							#ritorno mpls bu nodo_src
 							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport2)
 							self.add_flow(datapath, 1, match4, actions3)
 				
@@ -363,7 +364,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 							out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
 							datapath.send_msg(out)
 				
-					elif (i == (lenpath-1)): 
+					elif (i == (lenpath_dfl-1)): 
 						#print ("Questo è i:%s" %(i))
 						#print ("Questo è dpid_dst:%s" %(dpid_dst))
 						#print ("Questo è nodopath:%s" %(path_list[0][i]))
@@ -374,7 +375,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 							print (self.datapaths)
 							currentdatapath = self.datapaths[path_list[0][i]]
 						
-							#andata mpls dfl
+							#andata mpls dfl nodo_dst
 							outport1 = self.mac_to_port[dpid_dst][dst]
 							print ("Questa è la porta di h2: %s" %(outport1))
 							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl)
@@ -382,11 +383,11 @@ class ZodiacSwitch(app_manager.RyuApp):
 									parser.OFPActionOutput(outport1)]
 							self.add_flow(currentdatapath, 2, match1, actions1)
 						
-							#andata mpls bu
+							#andata mpls bu nodo_dst
 							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu)
 							self.add_flow(currentdatapath, 1, match2, actions1)
 						
-							#ritorno mpls dfl
+							#ritorno mpls dfl nodo_dst
 							outport2 = self.net[dpid_dst][path_list[0][i-1]]['port']
 							print ("Questa è la porta di ritorno dfl: %s" %(outport2))
 							match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
@@ -395,7 +396,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 									parser.OFPActionOutput(outport2)]
 							self.add_flow(currentdatapath, 2, match3, actions3)
 						
-							#ritorno mpls bu
+							#ritorno mpls bu nodo_dst
 							outport3 = self.net[dpid_dst][path_list[1][i-1]]['port']
 							print ("Questa è la porta di ritorno bu: %s" %(outport3))
 							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
@@ -410,31 +411,34 @@ class ZodiacSwitch(app_manager.RyuApp):
 						outport1 = self.net[path_list[0][i]][path_list[0][i+1]]['port']
 						outport2 = self.net[path_list[0][i]][path_list[0][i-1]]['port']
 						
-						#andata mpls dfl
+						#andata mpls dfl nodo_intermedio
 						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport2)
 						actions1 = [parser.OFPActionOutput(outport1)]
 						self.add_flow(currentdatapath, 2, match1, actions1)
 						
-						#ritorno mpls dfl
+						#ritorno mpls dfl nodo_intermedio
 						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport1)
 						actions2 = [parser.OFPActionOutput(outport2)]
 						self.add_flow(currentdatapath, 2, match2, actions2)
-		
+				
+				if (onepath == 0):
+					lenpath_bu = len(path_list[1])
+					for i in range(1, lenpath_bu-1):
 						
 						currentdatapath = self.datapaths[path_list[1][i]]
-						outport3 = self.net[path_list[1][i]][path_list[0][i+1]]['port']
-						outport4 = self.net[path_list[1][i]][path_list[0][i-1]]['port']
+						outport1 = self.net[path_list[1][i]][path_list[1][i+1]]['port']
+						outport2 = self.net[path_list[1][i]][path_list[1][i-1]]['port']
 						
-						#andata mpls bu
-						match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport4)
-						actions3 = [parser.OFPActionOutput(outport3)]
-						self.add_flow(currentdatapath, 1, match3, actions3)
+						#andata mpls bu nodo_intermedio
+						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport2)
+						actions1 = [parser.OFPActionOutput(outport1)]
+						self.add_flow(currentdatapath, 1, match1, actions1)
 						
-						#ritorno mpls bu
-						match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport3)
-						actions4 = [parser.OFPActionOutput(outport4)]
-						self.add_flow(currentdatapath, 1, match4, actions4)
-			
+						#ritorno mpls bu nodo_intermedio
+						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport1)
+						actions2 = [parser.OFPActionOutput(outport2)]
+						self.add_flow(currentdatapath, 1, match2, actions2)
+						
 					
 	def assign_label(self):
 		if not self.label_list:

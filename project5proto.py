@@ -74,7 +74,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.mac_to_port = {}
 		self.mac_to_dpid = {}
 		self.port_to_mac = {}
-		self.host_list = {}
+		self.host_list = []
 		self.ip_to_mac = {}
 		self.ip_to_mac[IP_ADDRESS_CONTROLLER] = '18:03:73:db:86:82'
 		self.port_occupied = {}
@@ -318,7 +318,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				if (len(path_list) == 1):
 					self.logger.info("Only default path installed")
 					onepath = 1
-				print("questa è una prova %s"%( path_list)) 
+				print("questa è una prova %s"%(path_list)) 
 			
 				lenpath = len(path_list[0])
 				for i in range(0, lenpath):
@@ -326,10 +326,11 @@ class ZodiacSwitch(app_manager.RyuApp):
 						if (path_list[0][i] == self.mac_to_dpid[src_MAC]):
 					
 							print (self.mac_to_dpid[src_MAC])
+							print ("Questa è la in_port di h1:%s" %(in_port))
 					
 							#andata mpls dfl
 							outport1 = self.net[dpid_src][path_list[0][i+1]]['port']
-							match1 = parser.OFPMatch(eth_src=src_MAC, eth_dst=dst_MAC)
+							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
 							actions1 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labeldfl),
 									parser.OFPActionOutput(outport1)]
@@ -337,7 +338,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 							#andata mpls bu
 							outport2 = self.net[dpid_src][path_list[1][i+1]]['port']
-							match2 = parser.OFPMatch(eth_src=src_MAC, eth_dst=dst_MAC)
+							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
 							actions2 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labelbu),
 									parser.OFPActionOutput(outport2)]
@@ -353,13 +354,20 @@ class ZodiacSwitch(app_manager.RyuApp):
 							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport2)
 							self.add_flow(datapath, 1, match4, actions3)
 				
-				
+							current_op = outport1
+							
+							#pkt forwarding
+							actions = [parser.OFPActionPushMpls(),
+									parser.OFPActionSetField(mpls_label=labeldfl),
+									parser.OFPActionOutput(current_op)]
+							out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
+							datapath.send_msg(out)
 				
 					elif (i == (lenpath-1)): 
-						print ("Questo è i:%s" %(i))
-						print ("Questo è dpid_dst:%s" %(dpid_dst))
-						print ("Questo è nodopath:%s" %(path_list[0][i]))
-						print (self.datapaths)
+						#print ("Questo è i:%s" %(i))
+						#print ("Questo è dpid_dst:%s" %(dpid_dst))
+						#print ("Questo è nodopath:%s" %(path_list[0][i]))
+						#print (self.datapaths)
 						
 						if (path_list[0][i] == dpid_dst):
 						
@@ -368,6 +376,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 							#andata mpls dfl
 							outport1 = self.mac_to_port[dpid_dst][dst]
+							print ("Questa è la porta di h2: %s" %(outport1))
 							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl)
 							actions1 = [parser.OFPActionPopMpls(),
 									parser.OFPActionOutput(outport1)]
@@ -379,7 +388,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 							#ritorno mpls dfl
 							outport2 = self.net[dpid_dst][path_list[0][i-1]]['port']
-							match3 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
+							print ("Questa è la porta di ritorno dfl: %s" %(outport2))
+							match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
 							actions3 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labeldfl),
 									parser.OFPActionOutput(outport2)]
@@ -387,20 +397,44 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 							#ritorno mpls bu
 							outport3 = self.net[dpid_dst][path_list[1][i-1]]['port']
-							match4 = parser.OFPMatch(eth_src=dst_MAC, eth_dst=src_MAC)
+							print ("Questa è la porta di ritorno bu: %s" %(outport3))
+							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
 							actions4 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labelbu),
 									parser.OFPActionOutput(outport3)]
 							self.add_flow(currentdatapath, 1, match4, actions4)
-			
-			
+					 	
+					else:
 						
-					
-		'''#pkt forwarding
-		out_port = self.mac_to_port[dpid_src][src]
-		actions = [parser.OFPActionOutput(out_port)]
-		out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-		datapath.send_msg(out)'''
+						currentdatapath = self.datapaths[path_list[0][i]]
+						outport1 = self.net[path_list[0][i]][path_list[0][i+1]]['port']
+						outport2 = self.net[path_list[0][i]][path_list[0][i-1]]['port']
+						
+						#andata mpls dfl
+						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport2)
+						actions1 = [parser.OFPActionOutput(outport1)]
+						self.add_flow(currentdatapath, 2, match1, actions1)
+						
+						#ritorno mpls dfl
+						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport1)
+						actions2 = [parser.OFPActionOutput(outport2)]
+						self.add_flow(currentdatapath, 2, match2, actions2)
+		
+						
+						currentdatapath = self.datapaths[path_list[1][i]]
+						outport3 = self.net[path_list[1][i]][path_list[0][i+1]]['port']
+						outport4 = self.net[path_list[1][i]][path_list[0][i-1]]['port']
+						
+						#andata mpls bu
+						match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport4)
+						actions3 = [parser.OFPActionOutput(outport3)]
+						self.add_flow(currentdatapath, 1, match3, actions3)
+						
+						#ritorno mpls bu
+						match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport3)
+						actions4 = [parser.OFPActionOutput(outport4)]
+						self.add_flow(currentdatapath, 1, match4, actions4)
+			
 					
 	def assign_label(self):
 		if not self.label_list:

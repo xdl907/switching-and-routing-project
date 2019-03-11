@@ -1,3 +1,26 @@
+1) MININET AND RYU
+
+To launch "simple" topology
 sudo mn --custom mininet/custom/topology.py --mac --topo mpls --controller=remote,ip=10.0.2.15,port=6633 --switch ovs,protocols=OpenFlow13
 
-PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/project5.py
+To launch mesh topology
+#sudo mn --custom mininet/custom/meshtopology.py --mac --topo mplsmesh --controller=remote --switch ovs,protocols=OpenFlow13
+
+To launch ryu-manager
+PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/project5proto.py
+
+2) IPERF
+
+To launch TCP server:
+mininet/util/m h2 iperf -s
+
+To launch TCP client:
+mininet/util/m h1 iperf -c 10.0.0.2
+
+To sniff packets (hosts)
+mininet/util/m h1 tshark -f "tcp"
+
+To sniff packets (switches)
+mininet/util/m s1 tshark -i "s1-eth1" -f "tcp"
+
+(change protocol/ip/interface when needed)

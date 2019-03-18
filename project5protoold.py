@@ -480,67 +480,67 @@ class ZodiacSwitch(app_manager.RyuApp):
 			self.port_occupied[l[0]][l[2]] = 1
 
 	@set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
-	def port_desc_stats_reply_handler(self, ev):
-        	"""Handles response to the Port Desc Stats request"""
-        	datapath = ev.msg.datapath
-        	ofp = datapath.ofproto
-        	parser = datapath.ofproto_parser
- 
-        	print("Received port list:")
-        	for port in ev.msg.body:
-            		print(self.port_to_string(datapath, port))
+    def port_desc_stats_reply_handler(self, ev):
+        """Handles response to the Port Desc Stats request"""
+        datapath = ev.msg.datapath
+        ofp = datapath.ofproto
+        parser = datapath.ofproto_parser
+        
+        print("Received port list:")
+        for port in ev.msg.body:
+        	print(self.port_to_string(datapath, port))
 
 	@set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
 	def port_status_handler(self, ev):
-    	"""Handles async Port Status messages"""
-    	msg = ev.msg
-    	ofp = msg.datapath.ofproto
-    
-    	reason = {
+        """Handles async Port Status messages"""
+        msg = ev.msg
+        ofp = msg.datapath.ofproto
+        
+        reason = {
         	ofp.OFPPR_ADD: "Port was added",
         	ofp.OFPPR_DELETE: "Port was deleted",
         	ofp.OFPPR_MODIFY: "Port was modified"
-    	}.get(msg.reason, "Unknown reason (%d)" % msg.reason)
-
-    	print("Received port status update: %s" % reason)
-    	print(self.port_to_string(msg.datapath, msg.desc))
-
-	def port_to_string(self, datapath, port):
-    	ofp = datapath.ofproto
-    	out = "  Port %d (%s, hw_addr:%s)\n" % (port.port_no, port.name,
+        }.get(msg.reason, "Unknown reason (%d)" % msg.reason)
+        
+        print("Received port status update: %s" % reason)
+        print(self.port_to_string(msg.datapath, msg.desc))
+        
+        def port_to_string(self, datapath, port):
+        ofp = datapath.ofproto
+        out = "  Port %d (%s, hw_addr:%s)\n" % (port.port_no, port.name,
                                            		port.hw_addr)
-    	out += "    Configuration:"
-
-    	if port.config & ofp.OFPPC_PORT_DOWN:
+        out += "    Configuration:"
+        
+        if port.config & ofp.OFPPC_PORT_DOWN:
         		out += "      Port is administratively down (OFPPC_PORT_DOWN)\n"
-    
-    	elif port.config & ofp.OFPPC_NO_RECV:
+        
+        elif port.config & ofp.OFPPC_NO_RECV:
         		out += "      Drop all packets received by port (OFPPC_NO_RECV)\n"
-    
-    	elif port.config & ofp.OFPPC_NO_FWD:
+        
+        elif port.config & ofp.OFPPC_NO_FWD:
         		out += "      Drop packets forwarded to port (OFPPC_NO_FWD)\n"
-    
-    	elif port.config & ofp.OFPPC_NO_PACKET_IN:
+        
+        elif port.config & ofp.OFPPC_NO_PACKET_IN:
         		out += "      Do not send packet-in msgs for port (OFPPC_NO_PACKET_IN)\n"
                         
-    	out += "    State:"
-    
-    	if port.state & ofp.OFPPS_LINK_DOWN:
+        out += "    State:"
+        
+        if port.state & ofp.OFPPS_LINK_DOWN:
         		out += "      No physical link present (OFPPS_LINK_DOWN)\n"
-    
-    	elif port.state & ofp.OFPPS_BLOCKED:
+        
+        elif port.state & ofp.OFPPS_BLOCKED:
         		out += "      Port is blocked (OFPPS_BLOCKED)\n"
                     
-    	elif port.state & ofp.OFPPS_LIVE:
+        elif port.state & ofp.OFPPS_LIVE:
         		out += "      Live for Fast Failover Group (OFPPS_LIVE)\n"
                         
-    	else:
+        else:
         		out += "      Physical link present (OFPPS_LINK_UP)\n" 
         
-    	out += "    Current Speed: %dkbps\n" % port.curr_speed
-    	out += "    Max Speed: %dkbps\n" % port.max_speed
-
-    	return out
+        out += "    Current Speed: %dkbps\n" % port.curr_speed
+        out += "    Max Speed: %dkbps\n" % port.max_speed
+        
+        return out
 
 
 app_manager.require_app('ryu.app.ws_topology')

@@ -93,6 +93,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
 		
+		req= parser.OFPPortDescStatsRequest(datapath,0)
+		datapath.send_msg(req)
+		
 		# install table-miss flow entry
 		#
 		# We specify NO BUFFER to max_len of the output action due to

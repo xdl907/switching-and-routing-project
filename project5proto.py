@@ -83,8 +83,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.label_list = []
 		self.scrDst_list = []
 		self.mpls_conn_list = []
-		self.dfl_paths = [][]
-		self.bu_paths = [][]
+		self.dfl_paths = []
+		self.bu_paths = []
 
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -326,7 +326,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				if (len(path_list) <= 1):
 					self.logger.info("Only default path installed")
 					onepath = 1
-				else
+				else:
 					self.bu_paths[scrDst_list[0]][scrDst_list[1]] = path_list[1]
 					
 				print("questa è la path_list %s"%(path_list)) 

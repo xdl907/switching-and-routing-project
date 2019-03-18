@@ -83,6 +83,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.label_list = []
 		self.scrDst_list = []
 		self.mpls_conn_list = []
+		self.dfl_paths = [][]
+		self.bu_paths = [][]
 
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -316,10 +318,15 @@ class ZodiacSwitch(app_manager.RyuApp):
 				path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
 			
 				onepath = 0
-				if (len(path_list) == 1):
+				self.dfl_paths[scrDst_list[0]][scrDst_list[1]] = path_list[0]
+				
+				if (len(path_list) <= 1):
 					self.logger.info("Only default path installed")
 					onepath = 1
-				print("questa è una prova %s"%(path_list)) 
+				else
+					self.bu_paths[scrDst_list[0]][scrDst_list[1]] = path_list[1]
+					
+				print("questa è la path_list %s"%(path_list)) 
 			
 				lenpath_dfl = len(path_list[0])
 				for i in range(0, lenpath_dfl):
@@ -331,39 +338,20 @@ class ZodiacSwitch(app_manager.RyuApp):
 					
 							#andata mpls dfl nodo_src
 							outport1 = self.net[dpid_src][path_list[0][i+1]]['port']
-							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
+							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC, in_port=in_port)
 							actions1 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labeldfl),
 									parser.OFPActionOutput(outport1)]
 							self.add_flow(datapath, 2, match1, actions1)
 						
-							#andata mpls bu nodo_src
-							outport2 = self.net[dpid_src][path_list[1][i+1]]['port']
-							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
-							actions2 = [parser.OFPActionPushMpls(),
-									parser.OFPActionSetField(mpls_label=labelbu),
-									parser.OFPActionOutput(outport2)]
-							self.add_flow(datapath, 1, match2, actions2)
-						
 							#ritorno mpls dfl nodo_src
-							match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport1)
-							actions3 = [parser.OFPActionPopMpls(),
+							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
+							actions2 = [parser.OFPActionPopMpls(),
 									parser.OFPActionOutput(in_port)]
-							self.add_flow(datapath, 2, match3, actions3)
-						
-							#ritorno mpls bu nodo_src
-							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport2)
-							self.add_flow(datapath, 1, match4, actions3)
+							self.add_flow(datapath, 2, match2, actions2)
 				
 							current_op = outport1
 							
-							#pkt forwarding
-							actions = [parser.OFPActionPushMpls(),
-									parser.OFPActionSetField(mpls_label=labeldfl),
-									parser.OFPActionOutput(current_op)]
-							out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-							datapath.send_msg(out)
-				
 					elif (i == (lenpath_dfl-1)): 
 						#print ("Questo è i:%s" %(i))
 						#print ("Questo è dpid_dst:%s" %(dpid_dst))
@@ -372,38 +360,25 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 						if (path_list[0][i] == dpid_dst):
 						
-							print (self.datapaths)
 							currentdatapath = self.datapaths[path_list[0][i]]
+							print(path_list[0][i-1])
+							outport1 = self.mac_to_port[dpid_dst][dst]
+							outport2 = self.net[dpid_dst][path_list[0][i-1]]['port']
 						
 							#andata mpls dfl nodo_dst
-							outport1 = self.mac_to_port[dpid_dst][dst]
 							print ("Questa è la porta di h2: %s" %(outport1))
-							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl)
+							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 							actions1 = [parser.OFPActionPopMpls(),
 									parser.OFPActionOutput(outport1)]
 							self.add_flow(currentdatapath, 2, match1, actions1)
 						
-							#andata mpls bu nodo_dst
-							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu)
-							self.add_flow(currentdatapath, 1, match2, actions1)
-						
 							#ritorno mpls dfl nodo_dst
-							outport2 = self.net[dpid_dst][path_list[0][i-1]]['port']
 							print ("Questa è la porta di ritorno dfl: %s" %(outport2))
-							match3 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
-							actions3 = [parser.OFPActionPushMpls(),
+							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
+							actions2 = [parser.OFPActionPushMpls(),
 									parser.OFPActionSetField(mpls_label=labeldfl),
 									parser.OFPActionOutput(outport2)]
-							self.add_flow(currentdatapath, 2, match3, actions3)
-						
-							#ritorno mpls bu nodo_dst
-							outport3 = self.net[dpid_dst][path_list[1][i-1]]['port']
-							print ("Questa è la porta di ritorno bu: %s" %(outport3))
-							match4 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
-							actions4 = [parser.OFPActionPushMpls(),
-									parser.OFPActionSetField(mpls_label=labelbu),
-									parser.OFPActionOutput(outport3)]
-							self.add_flow(currentdatapath, 1, match4, actions4)
+							self.add_flow(currentdatapath, 2, match2, actions2)
 					 	
 					else:
 						
@@ -412,32 +387,92 @@ class ZodiacSwitch(app_manager.RyuApp):
 						outport2 = self.net[path_list[0][i]][path_list[0][i-1]]['port']
 						
 						#andata mpls dfl nodo_intermedio
-						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport2)
+						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 						actions1 = [parser.OFPActionOutput(outport1)]
 						self.add_flow(currentdatapath, 2, match1, actions1)
 						
 						#ritorno mpls dfl nodo_intermedio
-						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, in_port=outport1)
+						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 						actions2 = [parser.OFPActionOutput(outport2)]
 						self.add_flow(currentdatapath, 2, match2, actions2)
 				
 				if (onepath == 0):
 					lenpath_bu = len(path_list[1])
-					for i in range(1, lenpath_bu-1):
+				
+					for i in range(0, lenpath_bu):
+						if (i == 0):
+							if (path_list[1][i] == self.mac_to_dpid[src_MAC]):
+					
+								print (self.mac_to_dpid[src_MAC])
+								print ("Questa è la in_port di h1:%s" %(in_port))
+					
+								#andata mpls dfl nodo_src
+								outport1 = self.net[dpid_src][path_list[1][i+1]]['port']
+								match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC, in_port=in_port)
+								actions1 = [parser.OFPActionPushMpls(),
+									parser.OFPActionSetField(mpls_label=labelbu),
+									parser.OFPActionOutput(outport1)]
+								self.add_flow(datapath, 1, match1, actions1)
 						
-						currentdatapath = self.datapaths[path_list[1][i]]
-						outport1 = self.net[path_list[1][i]][path_list[1][i+1]]['port']
-						outport2 = self.net[path_list[1][i]][path_list[1][i-1]]['port']
+								#ritorno mpls dfl nodo_src
+								match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
+								actions2 = [parser.OFPActionPopMpls(),
+									parser.OFPActionOutput(in_port)]
+								self.add_flow(datapath, 1, match2, actions2)
+				
+								current_op = outport1
+							
+						elif (i == (lenpath_bu-1)): 
+							#print ("Questo è i:%s" %(i))
+							#print ("Questo è dpid_dst:%s" %(dpid_dst))
+							#print ("Questo è nodopath:%s" %(path_list[0][i]))
+							#print (self.datapaths)
 						
-						#andata mpls bu nodo_intermedio
-						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport2)
-						actions1 = [parser.OFPActionOutput(outport1)]
-						self.add_flow(currentdatapath, 1, match1, actions1)
+							if (path_list[1][i] == dpid_dst):
 						
-						#ritorno mpls bu nodo_intermedio
-						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, in_port=outport1)
-						actions2 = [parser.OFPActionOutput(outport2)]
-						self.add_flow(currentdatapath, 1, match2, actions2)
+								currentdatapath = self.datapaths[path_list[1][i]]
+								print(path_list[1][i-1])
+								outport1 = self.mac_to_port[dpid_dst][dst]
+								outport2 = self.net[dpid_dst][path_list[1][i-1]]['port']
+						
+								#andata mpls dfl nodo_dst
+								print ("Questa è la porta di h2: %s" %(outport1))
+								match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
+								actions1 = [parser.OFPActionPopMpls(),
+									parser.OFPActionOutput(outport1)]
+								self.add_flow(currentdatapath, 1, match1, actions1)
+						
+								#ritorno mpls dfl nodo_dst
+								print ("Questa è la porta di ritorno dfl: %s" %(outport2))
+								match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
+								actions2 = [parser.OFPActionPushMpls(),
+									parser.OFPActionSetField(mpls_label=labelbu),
+									parser.OFPActionOutput(outport2)]
+								self.add_flow(currentdatapath, 1, match2, actions2)
+					 	
+						else:
+						
+							currentdatapath = self.datapaths[path_list[1][i]]
+							outport1 = self.net[path_list[1][i]][path_list[1][i+1]]['port']
+							outport2 = self.net[path_list[1][i]][path_list[1][i-1]]['port']
+						
+							#andata mpls dfl nodo_intermedio
+							match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
+							actions1 = [parser.OFPActionOutput(outport1)]
+							self.add_flow(currentdatapath, 1, match1, actions1)
+						
+							#ritorno mpls dfl nodo_intermedio
+							match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
+							actions2 = [parser.OFPActionOutput(outport2)]
+							self.add_flow(currentdatapath, 1, match2, actions2)
+						
+				#pkt forwarding
+				actions = [parser.OFPActionPushMpls(),
+					parser.OFPActionSetField(mpls_label=labeldfl),
+					parser.OFPActionOutput(current_op)]
+				out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
+				datapath.send_msg(out)
+				
 						
 					
 	def assign_label(self):
@@ -475,6 +510,72 @@ class ZodiacSwitch(app_manager.RyuApp):
 		# If there is a link attached to the port, then it is occupied (=1)
 		for l in links_:
 			self.port_occupied[l[0]][l[2]] = 1
+			
+			
+	
+	@set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
+	def port_desc_stats_reply_handler(self, ev):
+        	"""Handles response to the Port Desc Stats request"""
+        	datapath = ev.msg.datapath
+        	ofp = datapath.ofproto
+        	parser = datapath.ofproto_parser
+ 
+        	print("Received port list:")
+        	for port in ev.msg.body:
+            		print(self.port_to_string(datapath, port))
+
+	@set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
+    	def port_status_handler(self, ev):
+        	"""Handles async Port Status messages"""
+        	msg = ev.msg
+        	ofp = msg.datapath.ofproto
+        
+        	reason = {
+            	ofp.OFPPR_ADD: "Port was added",
+            	ofp.OFPPR_DELETE: "Port was deleted",
+            	ofp.OFPPR_MODIFY: "Port was modified"
+        	}.get(msg.reason, "Unknown reason (%d)" % msg.reason)
+ 
+        	print("Received port status update: %s" % reason)
+        	print(self.port_to_string(msg.datapath, msg.desc))
+ 
+    	def port_to_string(self, datapath, port):
+        	ofp = datapath.ofproto
+        	out = "  Port %d (%s, hw_addr:%s)\n" % (port.port_no, port.name,
+                                               		port.hw_addr)
+        	out += "    Configuration:"
+    
+        	if port.config & ofp.OFPPC_PORT_DOWN:
+            		out += "      Port is administratively down (OFPPC_PORT_DOWN)\n"
+        
+        	elif port.config & ofp.OFPPC_NO_RECV:
+            		out += "      Drop all packets received by port (OFPPC_NO_RECV)\n"
+        
+        	elif port.config & ofp.OFPPC_NO_FWD:
+            		out += "      Drop packets forwarded to port (OFPPC_NO_FWD)\n"
+        
+        	elif port.config & ofp.OFPPC_NO_PACKET_IN:
+            		out += "      Do not send packet-in msgs for port (OFPPC_NO_PACKET_IN)\n"
+                            
+        	out += "    State:"
+        
+        	if port.state & ofp.OFPPS_LINK_DOWN:
+            		out += "      No physical link present (OFPPS_LINK_DOWN)\n"
+        
+        	elif port.state & ofp.OFPPS_BLOCKED:
+            		out += "      Port is blocked (OFPPS_BLOCKED)\n"
+                        
+        	elif port.state & ofp.OFPPS_LIVE:
+            		out += "      Live for Fast Failover Group (OFPPS_LIVE)\n"
+                            
+        	else:
+            		out += "      Physical link present (OFPPS_LINK_UP)\n" 
+            
+        	out += "    Current Speed: %dkbps\n" % port.curr_speed
+        	out += "    Max Speed: %dkbps\n" % port.max_speed
+ 
+        	return out
+
 
 
 app_manager.require_app('ryu.app.ws_topology')

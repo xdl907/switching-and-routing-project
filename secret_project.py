@@ -91,6 +91,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 		datapath = ev.msg.datapath
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
+		
+		# port request
+		req = parser.OFPPortDescStatsRequest(datapath, 0)
+		datapath.send_msg(req)
 
 		# install table-miss flow entry
 		#
@@ -101,8 +105,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 		# correctly.  The bug has been fixed in OVS v2.1.0.
 		match = parser.OFPMatch()
 		actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,ofproto.OFPCML_NO_BUFFER)]
+		command = ofproto.OFPFC_ADD
 											
-		self.add_flow(datapath, 0, match, actions)
+		self.add_flow(datapath, 0, match, actions, command)
 
 	def get_topology_data(self):
 
@@ -131,7 +136,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		for l in links_:
 			self.port_occupied[l[0]][l[2]] = 1
 
-	def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+	def add_flow(self, datapath, priority, match, actions, command, buffer_id=None):
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
 
@@ -139,37 +144,32 @@ class ZodiacSwitch(app_manager.RyuApp):
 												actions)]
 		if buffer_id:
 			mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-									priority=priority, match=match,
-									instructions=inst)
+									priority=priority, command=command,
+									 out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY, match=match, instructions=inst)
 		else:
-			mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-									match=match, instructions=inst)
+			mod = parser.OFPFlowMod(datapath=datapath, priority=priority, command=command,
+									match=match, out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY, instructions=inst)
 		datapath.send_msg(mod)
 
 	def add_mpls_connection(self, dpid_src, dpid_dst, datapath, command, labeldfl, path, src_MAC, dst_MAC):
 			
+		ofp = datapath.ofproto
 		parser = datapath.ofproto_parser
-		#porte ok
 		lenpath_dfl = len(path)
 		for i in range(0, lenpath_dfl):
 			if (i == 0):
 				if (path[i] == self.mac_to_dpid[src_MAC]):
 					
 					in_port = self.mac_to_port[dpid_src][src_MAC]
-					print("port host-dpid_src %d" % in_port)
 					
 					#andata mpls dfl nodo_src
-					print("add_mpls_connection")
-					print(path)
 					outport1 = self.net[dpid_src][path[i+1]]['port']
-					print("port dpid_src-path[%d] %d" %((i+1), in_port))
 					match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC, in_port=in_port)
 					actions1 = [parser.OFPActionPushMpls(),
 							parser.OFPActionSetField(mpls_label=labeldfl),
 							parser.OFPActionOutput(outport1)]
 					self.add_flow(datapath, 1, match1, actions1, command)
 
-					
 					#print (ether_types.ETH_TYPE_IP, src_MAC, dst_MAC, in_port, labeldfl, datapath, outport1)
 						
 					#ritorno mpls dfl nodo_src
@@ -180,21 +180,16 @@ class ZodiacSwitch(app_manager.RyuApp):
 				
 							
 			elif (i == (lenpath_dfl-1)): 
-						
-				if (path[i] == dpid_dst):
-						
+				if (path[i] == dpid_dst):	
 					currentdatapath = self.datapaths[path[i]]
 					outport1 = self.mac_to_port[dpid_dst][dst_MAC]
 					outport2 = self.net[dpid_dst][path[i-1]]['port']
-					print("port host-dpid_dst %d" % outport1)
-					print("port dpid_dst-path[%d] %d" %((i-1), outport2))
 				
 					#andata mpls dfl nodo_dst
 					match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 					actions1 = [parser.OFPActionPopMpls(),
 							parser.OFPActionOutput(outport1)]
 					self.add_flow(currentdatapath, 1, match1, actions1, command)
-
 						
 					#ritorno mpls dfl nodo_dst
 					match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
@@ -203,13 +198,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 							parser.OFPActionOutput(outport2)]
 					self.add_flow(currentdatapath, 1, match2, actions2, command)
 						
-			else:
-						
+			else:	
 				currentdatapath = self.datapaths[path[i]]
 				outport1 = self.net[path[i]][path[i+1]]['port']
-				print("port path[%d]-path[%d] %d" %(i, (i+1), outport1))
 				outport2 = self.net[path[i]][path[i-1]]['port']
-				print("port dpid[%d]-path[%d] %d" %(i, (i-1), outport2))
 						
 				#andata mpls dfl nodo_intermedio
 				match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
@@ -220,7 +212,14 @@ class ZodiacSwitch(app_manager.RyuApp):
 				match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 				actions2 = [parser.OFPActionOutput(outport2)]
 				self.add_flow(currentdatapath, 1, match2, actions2, command)
-				print("HERE")
+				
+		if(command == ofp.OFPFC_DELETE):
+			self.label_dfl_list.remove(label)
+			self.dfl_paths.pop(str(label))
+			self.mpls_conn_list.remove(hash_value)
+			print("MPLS connection deleted")
+		elif(command == ofp.OFPFC_ADD):
+			print("MPLS connection installed")
 
 	def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
 		if opcode == 1:
@@ -395,7 +394,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				self.logger.info("Packet in switch: %s, source IP: %s, destination IP: %s, From the port: %s", dpid_src, src_ip, dst_ip, in_port)
 
 				dpid_dst = self.mac_to_dpid[dst_MAC]
-				self.dpid_to_mac[dpid_src] = src		
+				self.dpid_to_mac[dpid_src] = src
 				self.dpid_to_mac[dpid_dst] = dst
 				command = ofproto.OFPFC_ADD
 				
@@ -406,8 +405,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				if(path == []):
 					print("***No paths available for MPLS connection: %d %d***" %(src_ip, dst_ip))
 				else:
-					print("Installing %s %s mpls connection..." %(src_ip, dst_ip))
-					print (path)
+					print("Installing %s %s MPLS connection..." %(src_ip, dst_ip))
 				
 					labeldfl = self.assign_label()
 					self.dfl_paths[str(labeldfl)] = path #save default path
@@ -437,7 +435,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 
 	@set_ev_cls(event.EventSwitchEnter)
 	def switchEnter(self, ev):
-		self.get_topology_data()	
+		self.get_topology_data()
 
 	@set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
 	def port_desc_stats_reply_handler(self, ev):
@@ -445,10 +443,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 		datapath = ev.msg.datapath
 		ofp = datapath.ofproto
 		parser = datapath.ofproto_parser
-
+		
 		print("Received port list:")
 		for port in ev.msg.body:
-				print(self.port_to_string(datapath, port))
+			print(self.port_to_string(datapath, port))
 
 	@set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
 	def port_status_handler(self, ev):
@@ -464,7 +462,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 
 		print("\n\nReceived port status update: %s" % reason)
 		print(self.port_to_string(msg.datapath, msg.desc))
-
+		
 		self.net.clear()
 		self.port_occupied.clear()
 		self.get_topology_data()
@@ -473,82 +471,68 @@ class ZodiacSwitch(app_manager.RyuApp):
 		ofp = datapath.ofproto
 		dpid = datapath.id
 		out = "  Port %d (%s, hw_addr:%s)\n" % (port.port_no, port.name,
-		                                   		port.hw_addr)
+												port.hw_addr)
 		out += "    Configuration:"
 
 		if port.config & ofp.OFPPC_PORT_DOWN:
 			out += "      Port is administratively down (OFPPC_PORT_DOWN)\n"
-			
+
 		elif port.config & ofp.OFPPC_NO_RECV:
 			out += "      Drop all packets received by port (OFPPC_NO_RECV)\n"
 
 		elif port.config & ofp.OFPPC_NO_FWD:
 			out += "      Drop packets forwarded to port (OFPPC_NO_FWD)\n"
-			
+
 		elif port.config & ofp.OFPPC_NO_PACKET_IN:
 			out += "      Do not send packet-in msgs for port (OFPPC_NO_PACKET_IN)\n"
 
 		out += "    State:"
 
+		modify_flg = 0
 
 		if port.state & ofp.OFPPS_LINK_DOWN:
 			out += "      No physical link present (OFPPS_LINK_DOWN)\n"
 			command = ofp.OFPFC_DELETE
+			modify_flg = 1
 
 		elif port.state & ofp.OFPPS_BLOCKED:
 			out += "      Port is blocked (OFPPS_BLOCKED)\n"
-			
+
 		elif port.state & ofp.OFPPS_LIVE:
 			out += "      Live for Fast Failover Group (OFPPS_LIVE)\n"
-			
+
 		else:
 			out += "      Physical link present\n"
-			
-			
+
 		out += "    Current Speed: %dkbps\n" % port.curr_speed
 		out += "    Max Speed: %dkbps\n" % port.max_speed
 
-		#Paths modify
-		if (command == ofp.OFPFC_DELETE):
+		# Paths modify
+		if (modify_flg == 1):
+
 			for label in self.label_dfl_list:
 				if (dpid in self.dfl_paths[str(label)]):
-					if (dpid!=self.dfl_paths[str(label)][0] and dpid!=self.dfl_paths[str(label)][len(self.dfl_paths[str(label)])-1]):
-						
+					if (dpid != self.dfl_paths[str(label)][0] and dpid != self.dfl_paths[str(label)][
+						len(self.dfl_paths[str(label)]) - 1]):
+
 						dpid_src = self.dfl_paths[str(label)][0]
-						print(dpid_src)
-						dpid_dst = self.dfl_paths[str(label)][len(self.dfl_paths[str(label)])-1]
-						print(dpid_dst)
-						print(self.dfl_paths[str(label)])
+						dpid_dst = self.dfl_paths[str(label)][len(self.dfl_paths[str(label)]) - 1]
 						datapath_src = self.datapaths[dpid_src]
-
-						labeldfl = label 
-						dst = self.dpid_to_mac[dpid_dst]
-						src = self.dpid_to_mac[dpid_src]
-
-
+						labeldfl = label
 						G = self.net
 						path = nx.shortest_path(G, dpid_src, dpid_dst)
-						print("shortest_path")
-						print(path)
 
-
+						dst = self.dpid_to_mac[dpid_dst]
+						src = self.dpid_to_mac[dpid_src]
+						
 						scrDst_list = [src, dst] 
 						scrDst_list.sort()	
 						hash_value = hash((scrDst_list[0], scrDst_list[1]))
 
-						print(self.net[dpid_src][path[1]]['port'])
-						print(self.net[path[1]][dpid_src]['port'])
-						#se qui ci entra solo quando ho un link down, tolgo le regoloe non da path (che sarebbe 142) ma da self.dfl_paths[str(label)] (132)
-						
-						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, self.dfl_paths[str(label)], src, dst)
-
-						self.label_dfl_list.remove(label)
-						self.dfl_paths.pop(str(label))
-						self.mpls_conn_list.remove(hash_value)
-					
+						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, path, src, dst)
 
 		return out
 
 app_manager.require_app('ryu.app.ws_topology')
 app_manager.require_app('ryu.app.ofctl_rest')
-app_manager.require_app('ryu.app.gui_topology.gui_topology')	
+app_manager.require_app('ryu.app.gui_topology.gui_topology')

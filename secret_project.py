@@ -85,6 +85,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.dfl_paths = {}
 		self.dpid_to_mac = {}
 		self.switches = []
+		self.hash_value = 0
 	
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
 	def switch_features_handler(self, ev):
@@ -214,9 +215,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 				self.add_flow(currentdatapath, 1, match2, actions2, command)
 				
 		if(command == ofp.OFPFC_DELETE):
-			self.label_dfl_list.remove(label)
-			self.dfl_paths.pop(str(label))
-			self.mpls_conn_list.remove(hash_value)
+			self.label_dfl_list.remove(labeldfl)
+			self.dfl_paths.pop(str(labeldfl))
+			self.mpls_conn_list.remove(self.hash_value)
 			print("MPLS connection deleted")
 		elif(command == ofp.OFPFC_ADD):
 			print("MPLS connection installed")
@@ -527,7 +528,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 						scrDst_list = [src, dst] 
 						scrDst_list.sort()	
-						hash_value = hash((scrDst_list[0], scrDst_list[1]))
+						self.hash_value = hash((scrDst_list[0], scrDst_list[1]))
 
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, path, src, dst)
 

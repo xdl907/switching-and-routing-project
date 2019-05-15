@@ -88,8 +88,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.bu_paths = {}
 		self.dpid_to_mac = {}
 		self.switches = []
-		self.G = None
-		self.flg = 0
+		self.G = nx.DiGraph()
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
 	def switch_features_handler(self, ev):
@@ -129,20 +128,18 @@ class ZodiacSwitch(app_manager.RyuApp):
 			#self.GLOBAL_VARIABLE = 1
 		#print(self.port_occupied)
 		self.net.add_nodes_from(self.switches)
+		self.G.add_nodes_from(self.switches)
 		links_list = get_link(self.topology_api_app, None)
 		links=[(link.src.dpid,link.dst.dpid,{'port':link.src.port_no}) for link in links_list]
 		self.net.add_edges_from(links)
+		self.G.add_edges_from(links)
 		links=[(link.dst.dpid,link.src.dpid,{'port':link.dst.port_no}) for link in links_list]
 		self.net.add_edges_from(links)
+		self.G.add_edges_from(links)
 		links_=[(link.dst.dpid,link.src.dpid,link.dst.port_no) for link in links_list]
 		# If there is a link attached to the port, then it is occupied (=1)
 		for l in links_:
 			self.port_occupied[l[0]][l[2]] = 1
-
-		if (self.flg == 0):
-			print("HERE")
-			self.G = self.net
-			self.flg = 1
 
 
 	def add_flow(self, datapath, priority, match, actions, command, buffer_id=None):
@@ -282,6 +279,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 					match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 					actions2 = [parser.OFPActionOutput(outport2)]
 					self.add_flow(currentdatapath, 1, match2, actions2, command)
+
+		if (command == ofp.OFPFC_ADD):
+			print("MPLS connection installed")
 		
 
 	def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
@@ -473,29 +473,34 @@ class ZodiacSwitch(app_manager.RyuApp):
 				self.ONbu_flg[str(labelbu)] = 0
 		
 				#print (self.dfl_paths)
-				
-				print("Label dfl: %d" %labeldfl)
 
-				if (len(path_list) <= 1):
-					self.logger.info("Only default path installed")
-					onepath = 1
-					labelbu = None
+				if (len(path_list) == 0):
+					self.logger.info("No paths found")
+					
 				else:
-					print("Label bu: %d" %labelbu)
-					self.label_bu_list.append(labelbu)
-					self.ONbu_flg[str(labelbu)] = 1
-					self.bu_paths[str(labelbu)] = path_list[1]
+					if(len(path_list) == 1):
+						self.logger.info("Only one path found")
+						print("Label dfl: %d" %labeldfl)
+						onepath = 1
+						labelbu = None
+					else:
+						self.logger.info("DFL and BU paths found")
+						print("Label dfl: %d" %labeldfl)
+						print("Label bu: %d" %labelbu)
+						self.label_bu_list.append(labelbu)
+						self.ONbu_flg[str(labelbu)] = 1
+						self.bu_paths[str(labelbu)] = path_list[1]
 
 	
-				self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
+					self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
 			
-				#pkt forwarding
-				outPort = self.net[dpid_src][path_list[0][1]]['port']
-				actions = [parser.OFPActionPushMpls(),
-					parser.OFPActionSetField(mpls_label=labeldfl),
-					parser.OFPActionOutput(outPort)]
-				out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-				datapath.send_msg(out)	
+					#pkt forwarding
+					outPort = self.net[dpid_src][path_list[0][1]]['port']
+					actions = [parser.OFPActionPushMpls(),
+						parser.OFPActionSetField(mpls_label=labeldfl),
+						parser.OFPActionOutput(outPort)]
+					out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
+					datapath.send_msg(out)	
 					
 	def assign_label(self):
 
@@ -544,7 +549,6 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.net.clear()
 		self.port_occupied.clear()
 		self.get_topology_data()
-
 
 	def port_to_string(self, datapath, port):
 		ofp = datapath.ofproto

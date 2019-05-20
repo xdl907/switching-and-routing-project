@@ -34,6 +34,31 @@ Open host 2 in server mode
 Open host 1 in client mode setting max length of messages (MTU) to 500 bytes
 >  mininet/util/m h1 iperf -c 10.0.0.2 -M 500
 
-Open the browser and chech rule installation on *http://localhost:8282*
+Open the browser and check rule installation on *http://localhost:8282*
+
+Simulate a link failure in the default MPLS path with
+>  link s1 s3 down
+
+Restore the previous link with 
+>  link s1 s3 up
+
+Simulate a link failure in the default and backup MPLS path with
+>  link s1 s3 down
+
+>  link s1 s4 down
+
+Restore the previous link with 
+>  link s1 s3 up
+
+
+
+
+
+
+
+
+
+
+
 
 

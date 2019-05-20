@@ -23,8 +23,7 @@ Load the topology
 >  sudo mn --custom mininet/custom/topology.py --mac --topo mpls --link tc,bw=1 --controller=remote,ip=10.0.2.15,port=6633 --switch ovs,protocols=OpenFlow13
 
 Open tshark on both hosts to show packets exchanged
->  mininet/util/m h1 tshark -f "tcp"
-mininet/util/m h2 tshark -f "tcp"
+>  mininet/util/m h1 tshark -f "tcp" mininet/util/m h2 tshark -f "tcp"
 
 aaaa
 

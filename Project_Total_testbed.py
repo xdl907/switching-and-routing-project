@@ -89,6 +89,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.dpid_to_mac = {}
 		self.switches = []
 		self.G = nx.DiGraph()
+		
 
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
 	def switch_features_handler(self, ev):
@@ -415,6 +416,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 			
 		ip4_pkt = pkt.get_protocol(ipv4.ipv4)
 		if ip4_pkt:
+
 			src_ip = ip4_pkt.src
 			dst_ip = ip4_pkt.dst
 			src_MAC = src
@@ -447,60 +449,77 @@ class ZodiacSwitch(app_manager.RyuApp):
 			scrDst_list = [src, dst] 
 			scrDst_list.sort()
 
-			print('Sono qui')
+			#print('Sono qui')
 			#verify if connection between the two host is already installed
 			if (hash((scrDst_list[0], scrDst_list[1])) not in self.mpls_conn_list): 
 				self.mpls_conn_list.append(hash((scrDst_list[0], scrDst_list[1])))
-				#self.logger.info(self.mpls_conn_list)
+				#self.logger.info(self.mpls_conn_list)		
 				
-				print("Installing %s %s mpls connection..." %(src_ip, dst_ip))
-
-				dpid_dst = self.mac_to_dpid[dst_MAC]
-				self.dpid_to_mac[dpid_src] = src		
-				self.dpid_to_mac[dpid_dst] = dst
-				command = ofproto.OFPFC_ADD
-	
-				G = self.net
-				path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
+				install_flg = 1
+				print (self.mac_to_dpid)#*********
+				try:
+					dpid_dst = self.mac_to_dpid[dst_MAC] #*******************************************
+				except:
+					print("Destination MAC unknown, sending ARP request...")
+					self.mpls_conn_list.remove(hash((scrDst_list[0], scrDst_list[1])))
+					install_flg = 0
+					opcode = 1
+					dst_MAC = "ff:ff:ff:ff:ff:ff"
+					for po in range(1,len(self.port_occupied[dpid_src])+1):
+							if self.port_occupied[dpid_src][po] == 0:
+							# If the port is occupied
+								outPort = po
+								if outPort != in_port:
+									self.send_arp(datapath, opcode, src_MAC, srcIp, dst_MAC, dst_Ip, outPort)
 			
-				onepath = 0
-				modify_dfl = 1
-				
-				labeldfl = self.assign_label()
-				labelbu = labeldfl+1
-				self.dfl_paths[str(labeldfl)] = path_list[0]
-				self.ONdfl_flg[str(new_label)] = 1
-				self.ONbu_flg[str(labelbu)] = 0
+				if (install_flg == 1):
+					print("Installing %s %s mpls connection..." %(src_ip, dst_ip))
+
+					self.dpid_to_mac[dpid_src] = src
+					self.dpid_to_mac[dpid_dst] = dst
+					command = ofproto.OFPFC_ADD
 		
-				#print (self.dfl_paths)
-
-				if (len(path_list) == 0):
-					self.logger.info("No paths found")
+					G = self.net
+					path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
+				
+					onepath = 0
+					modify_dfl = 1
 					
-				else:
-					if(len(path_list) == 1):
-						self.logger.info("Only one path found")
-						print("Label dfl: %d" %labeldfl)
-						onepath = 1
-						labelbu = None
-					else:
-						self.logger.info("DFL and BU paths found")
-						print("Label dfl: %d" %labeldfl)
-						print("Label bu: %d" %labelbu)
-						self.label_bu_list.append(labelbu)
-						self.ONbu_flg[str(labelbu)] = 1
-						self.bu_paths[str(labelbu)] = path_list[1]
-
-	
-					self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
+					labeldfl = self.assign_label()
+					labelbu = labeldfl+1
+					self.dfl_paths[str(labeldfl)] = path_list[0]
+					self.ONdfl_flg[str(new_label)] = 1
+					self.ONbu_flg[str(labelbu)] = 0
 			
-					#pkt forwarding
-					outPort = self.net[dpid_src][path_list[0][1]]['port']
-					actions = [parser.OFPActionPushMpls(),
-						parser.OFPActionSetField(mpls_label=labeldfl),
-						parser.OFPActionOutput(outPort)]
-					out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
-					datapath.send_msg(out)	
+					#print (self.dfl_paths)
+
+					if (len(path_list) == 0):
+						self.logger.info("No paths found")
+						
+					else:
+						if(len(path_list) == 1):
+							self.logger.info("Only one path found")
+							print("Label dfl: %d" %labeldfl)
+							onepath = 1
+							labelbu = None
+						else:
+							self.logger.info("DFL and BU paths found")
+							print("Label dfl: %d" %labeldfl)
+							print("Label bu: %d" %labelbu)
+							self.label_bu_list.append(labelbu)
+							self.ONbu_flg[str(labelbu)] = 1
+							self.bu_paths[str(labelbu)] = path_list[1]
+
+		
+						self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
+				
+						#pkt forwarding
+						outPort = self.net[dpid_src][path_list[0][1]]['port']
+						actions = [parser.OFPActionPushMpls(),
+							parser.OFPActionSetField(mpls_label=labeldfl),
+							parser.OFPActionOutput(outPort)]
+						out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
+						datapath.send_msg(out)	
 					
 	def assign_label(self):
 
@@ -528,7 +547,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		parser = datapath.ofproto_parser
 
 		self.datapaths[datapath.id] = datapath
-		print(self.datapaths)
+		#print(self.datapaths)
 
 		print("Received port list:")
 		for port in ev.msg.body:

@@ -24,7 +24,7 @@ Load the topology
 
 Open tshark on both hosts to show packets exchanged
 >  mininet/util/m h1 tshark -f "tcp"
->  mininet/util/m h2 tshark -f "tcp"
+mininet/util/m h2 tshark -f "tcp"
 
 
 

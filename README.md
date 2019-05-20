@@ -16,5 +16,5 @@ emulating link failures.
 
 # Commands for mininet simulation
 
-Boot the controller PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/Project_Total_testbed.py
+Boot the controller *PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/Project_Total_testbed.py*
 

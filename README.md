@@ -28,7 +28,12 @@ Open tshark on both hosts to show packets exchanged
 
 >  mininet/util/m h2 tshark -f "tcp"
 
-aaaa
+Open host 2 in server mode
+>  mininet/util/m h2 iperf -s
 
+Open host 1 in client mode setting max length of messages (MTU) to 500 bytes
+>  mininet/util/m h1 iperf -c 10.0.0.2 -M 500
+
+Open the browser and chech rule installation on *http://localhost:8282*
 
 

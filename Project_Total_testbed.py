@@ -90,7 +90,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.switches = []
 		self.G = nx.DiGraph()
 		
-
+	#Default rule definition for all switches of the network. No buffering, the whole packet is forwarded to the controller
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
 	def switch_features_handler(self, ev):
 		datapath = ev.msg.datapath
@@ -115,6 +115,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		
 		self.add_flow(datapath, 0, match, actions, command)
 
+	#Triggered every time network pattern changes 
 	def get_topology_data(self):
 
 		switch_list = get_switch(self.topology_api_app, None)   
@@ -142,7 +143,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		for l in links_:
 			self.port_occupied[l[0]][l[2]] = 1
 
-
+	#Rule installation function
 	def add_flow(self, datapath, priority, match, actions, command, buffer_id=None):
 		ofproto = datapath.ofproto
 		parser = datapath.ofproto_parser
@@ -159,18 +160,21 @@ class ZodiacSwitch(app_manager.RyuApp):
 									match=match, out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY, instructions=inst)
 		datapath.send_msg(mod)
 		
+	#installation and removal of MPLS rules
 	def add_mpls_connection(self, dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl):
-			
 		parser = datapath.ofproto_parser
 		ofp = datapath.ofproto
+		#Definition of MPLS default rules for source and destination nodes. 
+		#With push MPLS command, the label is attached on the packet. Label is then removed by pop MPLS command.
 		if (modify_dfl == 1):
+			#cycling all nodes in default path
 			for i in range(0, len(self.dfl_paths[str(labeldfl)])):
 				if (i == 0):
 					if (self.dfl_paths[str(labeldfl)][i] == self.mac_to_dpid[src_MAC]):
 						
 						in_port = self.mac_to_port[dpid_src][src_MAC]
 						
-						#andata mpls dfl nodo_src
+						#push mpls dfl src node
 						outport1 = self.G[dpid_src][(self.dfl_paths[str(labeldfl)][i+1])]['port']
 						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC, in_port=in_port)
 						actions1 = [parser.OFPActionPushMpls(),
@@ -180,7 +184,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 						
 						#print (ether_types.ETH_TYPE_IP, src_MAC, dst_MAC, in_port, labeldfl, datapath, outport1)
 							
-						#ritorno mpls dfl nodo_src
+						#pop mpls dfl src node
 						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 						actions2 = [parser.OFPActionPopMpls(),
 								parser.OFPActionOutput(in_port)]
@@ -195,41 +199,44 @@ class ZodiacSwitch(app_manager.RyuApp):
 						outport1 = self.mac_to_port[dpid_dst][dst_MAC]
 						outport2 = self.G[dpid_dst][self.dfl_paths[str(labeldfl)][i-1]]['port']
 					
-						#andata mpls dfl nodo_dst
+						#push mpls dfl dst node
 						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 						actions1 = [parser.OFPActionPopMpls(),
 								parser.OFPActionOutput(outport1)]
 						self.add_flow(currentdatapath, 2, match1, actions1, command)
 							
-						#ritorno mpls dfl nodo_dst
+						#pop mpls dfl dst node
 						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 						actions2 = [parser.OFPActionPushMpls(),
 								parser.OFPActionSetField(mpls_label=labeldfl),
 								parser.OFPActionOutput(outport2)]
 						self.add_flow(currentdatapath, 2, match2, actions2, command)
-							
+					
+				#MPLS default rules definition for intermediate nodes: packet is forwarded according to its label.		
 				else:
 							
 					currentdatapath = self.datapaths[self.dfl_paths[str(labeldfl)][i]]
 					outport1 = self.G[self.dfl_paths[str(labeldfl)][i]][self.dfl_paths[str(labeldfl)][i+1]]['port']
 					outport2 = self.G[self.dfl_paths[str(labeldfl)][i]][self.dfl_paths[str(labeldfl)][i-1]]['port']
 							
-					#andata mpls dfl nodo_intermedio
+					#forward mpls dfl packet intermediate node
 					match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 					actions1 = [parser.OFPActionOutput(outport1)]
 					self.add_flow(currentdatapath, 2, match1, actions1, command)
 						
-					#ritorno mpls dfl nodo_intermedio
+					#backward mpls dfl packet intermediate node
 					match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labeldfl, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 					actions2 = [parser.OFPActionOutput(outport2)]
 					self.add_flow(currentdatapath, 2, match2, actions2, command)
-				
+			
+		#Definition of MPLS backup rules for source and destination nodes. 
+		#With push MPLS command, the label is attached on the packet. Label is then removed by pop MPLS command.	
 		if (onepath == 0):
 			for i in range(0, len(self.bu_paths[str(labelbu)])):
 				if (i == 0):
 					if (self.bu_paths[str(labelbu)][i] == self.mac_to_dpid[src_MAC]):
 					
-						#andata mpls bu nodo_src
+						#push mpls bu scr node
 						in_port = self.mac_to_port[dpid_src][src_MAC]
 						outport1 = self.G[dpid_src][self.bu_paths[str(labelbu)][i+1]]['port']
 						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=src_MAC, eth_dst=dst_MAC)
@@ -238,7 +245,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 							parser.OFPActionOutput(outport1)]
 						self.add_flow(datapath, 1, match1, actions1, command)
 						
-						#ritorno mpls bu nodo_src
+						#pop mpls bu scr node
 						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 						actions2 = [parser.OFPActionPopMpls(),
 							parser.OFPActionOutput(in_port)]
@@ -252,13 +259,13 @@ class ZodiacSwitch(app_manager.RyuApp):
 						outport1 = self.mac_to_port[dpid_dst][dst_MAC]
 						outport2 = self.G[dpid_dst][self.bu_paths[str(labelbu)][i-1]]['port']
 				
-						#andata mpls bu nodo_dst
+						#push mpls bu dst node
 						match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 						actions1 = [parser.OFPActionPopMpls(),
 							parser.OFPActionOutput(outport1)]
 						self.add_flow(currentdatapath, 1, match1, actions1, command)
 				
-						#ritorno mpls bu nodo_dst
+						#pop mpls bu dst node
 						match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, eth_src=dst_MAC, eth_dst=src_MAC)
 						actions2 = [parser.OFPActionPushMpls(),
 							parser.OFPActionSetField(mpls_label=labelbu),
@@ -271,12 +278,12 @@ class ZodiacSwitch(app_manager.RyuApp):
 					outport1 = self.G[self.bu_paths[str(labelbu)][i]][self.bu_paths[str(labelbu)][i+1]]['port']
 					outport2 = self.G[self.bu_paths[str(labelbu)][i]][self.bu_paths[str(labelbu)][i-1]]['port']
 						
-					#andata mpls bu nodo_intermedio
+					#forward mpls bu packet intermediate node
 					match1 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=src_MAC, eth_dst=dst_MAC, in_port=outport2)
 					actions1 = [parser.OFPActionOutput(outport1)]
 					self.add_flow(currentdatapath, 1, match1, actions1, command)
 						
-					#ritorno mpls bu nodo_intermedio
+					#backward mpls bu packet intermediate node
 					match2 = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_MPLS, mpls_label=labelbu, eth_src=dst_MAC, eth_dst=src_MAC, in_port=outport1)
 					actions2 = [parser.OFPActionOutput(outport2)]
 					self.add_flow(currentdatapath, 1, match2, actions2, command)
@@ -284,7 +291,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		if (command == ofp.OFPFC_ADD):
 			print("MPLS connection installed")
 		
-
+	#ARP delivery function
 	def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
 		if opcode == 1:
 			targetMac = "00:00:00:00:00:00"
@@ -310,7 +317,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		datapath.send_msg(out)
 
 
-
+	#Packet in handler: controller extracts packet fields
 	@set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
 	def _packet_in_handler(self, ev):
 		# If you hit this you might want to increase
@@ -449,20 +456,20 @@ class ZodiacSwitch(app_manager.RyuApp):
 			scrDst_list = [src, dst] 
 			scrDst_list.sort()
 
-			#print('Sono qui')
 			#verify if connection between the two host is already installed
 			if (hash((scrDst_list[0], scrDst_list[1])) not in self.mpls_conn_list): 
 				self.mpls_conn_list.append(hash((scrDst_list[0], scrDst_list[1])))
 				#self.logger.info(self.mpls_conn_list)		
 				
+				#Verify if controller knows the pair dstMAC/dpid
+				#If not send a BROADCAST ARP REQUEST
 				install_flg = 1
-				print (self.mac_to_dpid)#*********
 				try:
 					dpid_dst = self.mac_to_dpid[dst_MAC] #*******************************************
 				except:
 					print("Destination MAC unknown, sending ARP request...")
 					self.mpls_conn_list.remove(hash((scrDst_list[0], scrDst_list[1])))
-					install_flg = 0
+					install_flg = 0 
 					opcode = 1
 					dst_MAC = "ff:ff:ff:ff:ff:ff"
 					for po in range(1,len(self.port_occupied[dpid_src])+1):
@@ -472,13 +479,15 @@ class ZodiacSwitch(app_manager.RyuApp):
 								if outPort != in_port:
 									self.send_arp(datapath, opcode, src_MAC, srcIp, dst_MAC, dst_Ip, outPort)
 			
+				#If controller has all parameters, installs MPLS connection 
 				if (install_flg == 1):
 					print("Installing %s %s mpls connection..." %(src_ip, dst_ip))
 
 					self.dpid_to_mac[dpid_src] = src
 					self.dpid_to_mac[dpid_dst] = dst
 					command = ofproto.OFPFC_ADD
-		
+					
+					#Compute all possible disjoint paths between src and dst 
 					G = self.net
 					path_list = list(nx.edge_disjoint_paths(G, dpid_src, dpid_dst))
 				
@@ -487,11 +496,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 					
 					labeldfl = self.assign_label()
 					labelbu = labeldfl+1
+					#store paths in a list, labels are used as index
 					self.dfl_paths[str(labeldfl)] = path_list[0]
 					self.ONdfl_flg[str(new_label)] = 1
 					self.ONbu_flg[str(labelbu)] = 0
-			
-					#print (self.dfl_paths)
 
 					if (len(path_list) == 0):
 						self.logger.info("No paths found")
@@ -520,7 +528,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 							parser.OFPActionOutput(outPort)]
 						out = datapath.ofproto_parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=datapath.ofproto.OFPP_CONTROLLER, actions=actions, data=pkt.data)
 						datapath.send_msg(out)	
-					
+			
+	#Generate randomly labels		
 	def assign_label(self):
 
 		global new_label
@@ -534,11 +543,12 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.label_dfl_list.append(new_label)
 		return new_label
 
-
+	#Update topology when a new switch joins
 	@set_ev_cls(event.EventSwitchEnter)
 	def switchEnter(self, ev):
 		self.get_topology_data()
 	
+	#Triggered every time a new port is detected
 	@set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
 	def port_desc_stats_reply_handler(self, ev):
 		"""Handles response to the Port Desc Stats request"""
@@ -553,6 +563,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		for port in ev.msg.body:
 				print(self.port_to_string(datapath, port))
 
+	#Triggered every time an existing port changes its status
 	@set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
 	def port_status_handler(self, ev):
 		"""Handles async Port Status messages"""
@@ -560,7 +571,6 @@ class ZodiacSwitch(app_manager.RyuApp):
 		ofp = msg.datapath.ofproto
 		datapath = msg.datapath
 		self.datapaths[datapath.id] = datapath
-		print(self.datapaths)
 
 		reason = {
 			ofp.OFPPR_ADD: "Port was added",
@@ -571,9 +581,11 @@ class ZodiacSwitch(app_manager.RyuApp):
 		print("\n\nReceived port status update: %s" % reason)
 		print(self.port_to_string(msg.datapath, msg.desc))
 
+		#clear and reload topology when a port is modified
 		self.net.clear()
 		self.port_occupied.clear()
 		self.get_topology_data()
+
 
 	def port_to_string(self, datapath, port):
 		ofp = datapath.ofproto
@@ -618,9 +630,11 @@ class ZodiacSwitch(app_manager.RyuApp):
 		out += "    Current Speed: %dkbps\n" % port.curr_speed
 		out += "    Max Speed: %dkbps\n" % port.max_speed
 		
-		#Paths modify
+		#when a link goes down/return active
 		if (modify_flg == 1):
 			
+			#For each existing label, control if nodes are involved in a linkdown/linkup msg
+			#If one node is detected, rules are deleted/reinstalled in all nodes of the corresponding dft path
 			for label in self.label_dfl_list:
 				if (dpid in self.dfl_paths[str(label)]):
 					if (dpid!=self.dfl_paths[str(label)][0] and dpid!=self.dfl_paths[str(label)][len(self.dfl_paths[str(label)])-1]):
@@ -647,7 +661,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 							print("Both dfl and bu paths are not available between switch %d and %d \n" %(dpid_src, dpid_dst))
 						
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
-					
+
+			#Same as before for the bu path		
 			for label in self.label_bu_list:
 				if (dpid in self.bu_paths[str(label)]):
 					if (dpid!=self.bu_paths[str(label)][0] and dpid!=self.bu_paths[str(label)][len(self.bu_paths[str(label)])-1]):

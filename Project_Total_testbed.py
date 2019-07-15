@@ -30,6 +30,7 @@ import networkx as nx
 import json
 import logging
 import struct
+import time
 import random
 import ipaddr
 from webob import Response
@@ -89,6 +90,12 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.dpid_to_mac = {}
 		self.switches = []
 		self.G = nx.DiGraph()
+		self.timeStart=0
+		self.timeStop=0
+		self.interval=0
+		self.stopmodify=0
+		self.startmodify=0
+		self.intervalmodify=0
 		
 	#Default rule definition for all switches of the network. No buffering, the whole packet is forwarded to the controller
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -289,7 +296,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 					self.add_flow(currentdatapath, 1, match2, actions2, command)
 
 		if (command == ofp.OFPFC_ADD):
-			print("MPLS connection installed")
+			self.logger.info("MPLS connection installed")
+
 		
 	#ARP delivery function
 	def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
@@ -424,6 +432,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 		ip4_pkt = pkt.get_protocol(ipv4.ipv4)
 		if ip4_pkt:
 
+			if(self.timeStart==0):
+				self.timeStart= time.clock()
 			src_ip = ip4_pkt.src
 			dst_ip = ip4_pkt.dst
 			src_MAC = src
@@ -520,7 +530,19 @@ class ZodiacSwitch(app_manager.RyuApp):
 
 		
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
-				
+						self.timeStop= time.clock()
+						self.interval= self.timeStop- self.timeStart
+						self.timeStart=0
+
+						path = "ryu/ryu/app/interval_test.txt"
+						out_file = open(path,"a")
+						
+						out_file.write('     %f		' % self.interval)
+						out_file.close()
+						self.logger.info(" interval %f " % self.interval)
+						
+
+
 						#pkt forwarding
 						outPort = self.net[dpid_src][path_list[0][1]]['port']
 						actions = [parser.OFPActionPushMpls(),
@@ -649,6 +671,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 						#print (self.dpid_to_mac)
 						dst = self.dpid_to_mac[dpid_dst]
 						src = self.dpid_to_mac[dpid_src]
+
+						if(self.startmodify==0):
+							self.startmodify=time.clock()
 						
 						if (command == ofp.OFPFC_DELETE_STRICT):
 							self.ONdfl_flg[str(labeldfl)] = 0
@@ -677,6 +702,9 @@ class ZodiacSwitch(app_manager.RyuApp):
 						#print (self.dpid_to_mac)
 						dst = self.dpid_to_mac[dpid_dst]
 						src = self.dpid_to_mac[dpid_src]
+
+						if(self.startmodify==0):
+							self.startmodify=time.clock()
 						
 						if (command == ofp.OFPFC_DELETE_STRICT):
 							self.ONbu_flg[str(labelbu)] = 0
@@ -689,6 +717,14 @@ class ZodiacSwitch(app_manager.RyuApp):
 							print("Both dfl and bu paths are not available between switch %d and %d " %(dpid_src, dpid_dst))
 							
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
+			if(self.startmodify!=0):
+				self.stopmodify=time.clock()
+				self.intervalmodify=self.stopmodify-self.startmodify
+				out_file = open("ryu/ryu/app/Project5_timemodify_stats.txt","a")
+				out_file.write('%f\n' %self.intervalmodify)
+				out_file.close()
+				self.startmodify = 0
+				self.logger.info("Time for modifying: %f" %self.intervalmodify)
 
 		return out
 

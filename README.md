@@ -33,9 +33,12 @@ The switches notify the event to the controller with port status messages.
 
 ### Addictional checks
 The code provides also some additional checks:
-If only one path exists, the controller will install only the default one;
-If either one or both default and back-up paths aren’t available anymore,
+
+*  If only one path exists, the controller will install only the default one;
+
+*  If either one or both default and back-up paths aren’t available anymore,
 the relative rules on the switches are temporarily deleted until the connections return active.
+
 The user is always notified about all issues.
 
 

@@ -52,7 +52,7 @@ The user is always notified about all issues.
 
 ### Source: http://ryu.readthedocs.io/en/latest/getting_started.html
 
-# Commands for mininet simulation
+## Commands for mininet simulation
 
 Boot the controller
 >   PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/Project_Total_testbed.py

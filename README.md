@@ -9,10 +9,9 @@ The application is able to re‐route traffic on the back‐up path in case of a
 of a link of the default path and to restore the original ruleset when the default path returns to  a working state.
 
 ### MPLS connection set up
-
 h1 wants to establish an IP connection with h2.
-All the flow tables of the switches inside the network are empty (only the default rule is installed)
-When the first IP packet comes to the switch connected to h1, the controller installs the MPLS flows in the switches of the default and backup paths
+All the flow tables of the switches inside the network are empty (only the default rule is installed).
+When the first IP packet comes to the switch connected to h1, the controller installs the MPLS flows in the switches of the default and backup paths.
 
 
 

@@ -41,17 +41,6 @@ the relative rules on the switches are temporarily deleted until the connections
 
 The user is always notified about all issues.
 
-
-
-
-
-
-
-
-### Template: sar_application_SDN.py
-
-### Source: http://ryu.readthedocs.io/en/latest/getting_started.html
-
 ## Commands for mininet simulation
 
 Boot the controller

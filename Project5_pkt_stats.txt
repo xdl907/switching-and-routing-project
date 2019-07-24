@@ -1,0 +1,38 @@
+pi@rasp_3:~ $ iperf -s -u
+------------------------------------------------------------
+Server listening on UDP port 5001
+Receiving 1470 byte datagrams
+UDP buffer size:  160 KByte (default)
+------------------------------------------------------------
+
+1 kbit bw
+------------------------------------------------------------
+[  4] local 10.10.5.103 port 5001 connected with 10.10.5.102 port 57631
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  4]  0.0-11.0 sec  5.37 KBytes  4.00 Kbits/sec   0.020 ms    0/   11 (0%)
+
+100 kbit bw
+------------------------------------------------------------
+[  3] local 10.10.5.103 port 5001 connected with 10.10.5.102 port 48857
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  3]  0.0-10.0 sec   123 KBytes   100 Kbits/sec   0.590 ms    0/  251 (0%)
+
+1 mbit bw
+------------------------------------------------------------
+[  3] local 10.10.5.103 port 5001 connected with 10.10.5.102 port 48039
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  3]  0.0-10.0 sec  1.23 MBytes  1.03 Mbits/sec   0.019 ms   37/ 2622 (1.4%)
+[  3] 0.00-10.00 sec  1 datagrams received out-of-order
+------------------------------------------------------------
+[  3] local 10.10.5.103 port 5001 connected with 10.10.5.102 port 53498
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  3]  0.0-10.0 sec  1.18 MBytes   989 Kbits/sec   0.013 ms   31/ 2500 (1.2%)
+[  3] 0.00-9.98 sec  1 datagrams received out-of-order
+
+10 mbit bw
+------------------------------------------------------------
+[  4] local 10.10.5.103 port 5001 connected with 10.10.5.102 port 37383
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  4]  0.0-10.0 sec  11.7 MBytes  9.79 Mbits/sec   0.009 ms  528/25000 (2.1%)
+[  4] 0.00-10.00 sec  1 datagrams received out-of-order
+

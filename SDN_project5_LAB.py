@@ -32,6 +32,7 @@ import logging
 import struct
 import random
 import ipaddr
+import time
 from webob import Response
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet.packet import Packet
@@ -89,6 +90,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.dpid_to_mac = {}
 		self.switches = []
 		self.G = nx.DiGraph()
+		self.timestart = 0
+		self.timestop = 0
+		self.startmodify = 0
+		self.stopmodify = 0
 		
 	#Default rule definition for all switches of the network. No buffering, the whole packet is forwarded to the controller
 	@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -289,7 +294,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 					self.add_flow(currentdatapath, 1, match2, actions2, command)
 
 		if (command == ofp.OFPFC_ADD):
-			print("MPLS connection installed")
+			self.logger.info("MPLS connection installed")
 		
 	#ARP delivery function
 	def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
@@ -423,7 +428,10 @@ class ZodiacSwitch(app_manager.RyuApp):
 			
 		ip4_pkt = pkt.get_protocol(ipv4.ipv4)
 		if ip4_pkt:
-
+			
+			if (self.timestart == 0):
+				self.timestart = time.clock()
+			
 			src_ip = ip4_pkt.src
 			dst_ip = ip4_pkt.dst
 			src_MAC = src
@@ -466,8 +474,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 				try:
 					dpid_dst = self.mac_to_dpid[dst_MAC] #*******************************************
 				except:
-					print("Destination MAC unknown, sending ARP request...")
-					print (dst_MAC)
+					self.logger.info("Destination MAC unknown, sending ARP request...")
+					self.logger.info (dst_MAC)
 					self.mpls_conn_list.remove(hash((scrDst_list[0], scrDst_list[1])))
 					install_flg = 0 
 					opcode = 1
@@ -481,7 +489,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 			
 				#If controller has all parameters, installs MPLS connection 
 				if (install_flg == 1):
-					print("Installing %s %s mpls connection..." %(src_ip, dst_ip))
+					self.logger.info("Installing %s %s mpls connection..." %(src_ip, dst_ip))
 
 					self.dpid_to_mac[dpid_src] = src
 					self.dpid_to_mac[dpid_dst] = dst
@@ -507,13 +515,13 @@ class ZodiacSwitch(app_manager.RyuApp):
 					else:
 						if(len(path_list) == 1):
 							self.logger.info("Only one path found")
-							print("Label dfl: %d" %labeldfl)
+							self.logger.info("Label dfl: %d" %labeldfl)
 							onepath = 1
 							labelbu = None
 						else:
 							self.logger.info("DFL and BU paths found")
-							print("Label dfl: %d" %labeldfl)
-							print("Label bu: %d" %labelbu)
+							self.logger.info("Label dfl: %d" %labeldfl)
+							self.logger.info("Label bu: %d" %labelbu)
 							self.label_bu_list.append(labelbu)
 							self.ONbu_flg[str(labelbu)] = 1
 							self.bu_paths[str(labelbu)] = path_list[1]
@@ -521,6 +529,14 @@ class ZodiacSwitch(app_manager.RyuApp):
 		
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
 				
+						self.timestop = time.clock()
+						interval = self.timestop - self.timestart
+						out_file = open("/home/bonsai/ryu/ryu/app/Project5_time_stats.txt","a")
+						out_file.write('%f\n' %interval)
+						out_file.close()
+						self.timestart = 0
+						self.logger.info("Time for installation: %f" %interval)
+
 						#pkt forwarding
 						outPort = self.net[dpid_src][path_list[0][1]]['port']
 						actions = [parser.OFPActionPushMpls(),
@@ -559,7 +575,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		self.datapaths[datapath.id] = datapath
 		#print(self.datapaths)
 
-		print("Received port list:")
+		self.logger.info("Received port list:")
 		for port in ev.msg.body:
 				print(self.port_to_string(datapath, port))
 
@@ -578,8 +594,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 			ofp.OFPPR_MODIFY: "Port was modified"
 		}.get(msg.reason, "Unknown reason (%d)" % msg.reason)
 
-		print("\n\nReceived port status update: %s" % reason)
-		print(self.port_to_string(msg.datapath, msg.desc))
+		self.logger.info("\n\nReceived port status update: %s" % reason)
+		self.logger.info(self.port_to_string(msg.datapath, msg.desc))
 
 		#clear and reload topology when a port is modified
 		self.net.clear()
@@ -650,18 +666,22 @@ class ZodiacSwitch(app_manager.RyuApp):
 						#print (self.dpid_to_mac)
 						dst = self.dpid_to_mac[dpid_dst]
 						src = self.dpid_to_mac[dpid_src]
+
+						if (self.startmodify == 0):
+							self.startmodify = time.clock()
 						
 						if (command == ofp.OFPFC_DELETE_STRICT):
 							self.ONdfl_flg[str(labeldfl)] = 0
-							print("Mpls path %d (dfl) temporarily down\n" %labeldfl)
+							self.logger.info("Mpls path %d (dfl) temporarily down\n" %labeldfl)
 						elif (command == ofp.OFPFC_ADD):
 							self.ONdfl_flg[str(labeldfl)] = 1
-							print("Mpls path %d (dfl) reinstalled\n" %labeldfl)
+							self.logger.info("Mpls path %d (dfl) reinstalled\n" %labeldfl)
 
 						if (self.ONdfl_flg[str(labeldfl)]==0 and self.ONbu_flg[str(labeldfl+1)]==0):
-							print("Both dfl and bu paths are not available between switch %d and %d \n" %(dpid_src, dpid_dst))
+							self.logger.info("Both dfl and bu paths are not available between switch %d and %d \n" %(dpid_src, dpid_dst))
 						
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
+
 
 			#Same as before for the bu path		
 			for label in self.label_bu_list:
@@ -678,18 +698,30 @@ class ZodiacSwitch(app_manager.RyuApp):
 						#print (self.dpid_to_mac)
 						dst = self.dpid_to_mac[dpid_dst]
 						src = self.dpid_to_mac[dpid_src]
+
+						if (self.startmodify == 0):
+							self.startmodify = time.clock()
 						
 						if (command == ofp.OFPFC_DELETE_STRICT):
 							self.ONbu_flg[str(labelbu)] = 0
-							print("Mpls path %d (bu) temporarily down\n" %labelbu )
+							self.logger.info("Mpls path %d (bu) temporarily down\n" %labelbu )
 						elif (command == ofp.OFPFC_ADD):
 							self.ONbu_flg[str(labelbu)] = 1
-							print("Mpls path %d (bu) reinstalled\n" %labelbu)
+							self.logger.info("Mpls path %d (bu) reinstalled\n" %labelbu)
 
 						if (self.ONdfl_flg[str(labelbu-1)]==0 and self.ONbu_flg[str(labelbu)]==0):
-							print("Both dfl and bu paths are not available between switch %d and %d " %(dpid_src, dpid_dst))
+							self.logger.info("Both dfl and bu paths are not available between switch %d and %d " %(dpid_src, dpid_dst))
 							
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
+
+			if (self.startmodify != 0):
+				self.stopmodify = time.clock()
+				interval = self.stopmodify - self.startmodify
+				out_file = open("/home/bonsai/ryu/ryu/app/Project5_timemodify_stats.txt","a")
+				out_file.write('%f\n' %interval)
+				out_file.close()
+				self.startmodify = 0
+				self.logger.info("Time for modifying: %f" %interval)
 
 		return out
 

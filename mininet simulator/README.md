@@ -3,7 +3,7 @@
 Boot the controller
 
 ```bash
-$ PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/Project_Total_testbed.py
+$ PYTHONPATH=. ./ryu/bin/ryu-manager --observe-links ryu/ryu/app/Project_Total_mininet.py
 ```
 
 Load the topology

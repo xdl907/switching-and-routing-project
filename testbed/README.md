@@ -3,8 +3,8 @@
 Boot the controller
 
 ```bash
-$ bin/ryu-manager --observe-links ryu/ryu/app/SDN_project5_LAB.py 
 ```
+~/ryu $ bin/ryu-manager --observe-links ryu/ryu/app/SDN_project5_LAB.py
 
 Manually turn on the switches and open a SSH session to two of the hosts in the network
 

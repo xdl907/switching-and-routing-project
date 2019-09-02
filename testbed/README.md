@@ -3,8 +3,8 @@
 Boot the controller
 
 ```bash
+:~/ryu $ bin/ryu-manager --observe-links ryu/ryu/app/SDN_project5_LAB.py
 ```
-~/ryu $ bin/ryu-manager --observe-links ryu/ryu/app/SDN_project5_LAB.py
 
 Manually turn on the switches and open a SSH session to two of the hosts in the network
 
@@ -20,11 +20,11 @@ Open the browser and check rule installation on *http://localhost*
 
 To establish a TCP connection, open a iperf server on the desired destination host
 ```bash
-remote_username@remote_host_ip $ iperf -s
+remote_username@remote_host_ip:~ $ iperf -s
 ```
 Ssh to the desired source host and launch iperf in client mode. Max message length (MTU) is set to 500 bytes to avoid packet truncation
 ```bash
-remote_username@remote_host_ip $ iperf -c 10.0.0.2 -M 500
+remote_username@remote_host_ip:~ $ iperf -c 10.0.0.2 -M 500
 ```
 
 Link failures are simulated by manually unplugging the correct network cables.

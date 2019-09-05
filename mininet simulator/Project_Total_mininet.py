@@ -475,7 +475,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				#If not send a BROADCAST ARP REQUEST
 				install_flg = 1
 				try:
-					dpid_dst = self.mac_to_dpid[dst_MAC] #*******************************************
+					dpid_dst = self.mac_to_dpid[dst_MAC] 
 				except:
 					print("Destination MAC unknown, sending ARP request...")
 					self.mpls_conn_list.remove(hash((scrDst_list[0], scrDst_list[1])))
@@ -717,6 +717,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 							print("Both dfl and bu paths are not available between switch %d and %d " %(dpid_src, dpid_dst))
 							
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
+						
+			#Statistics			
 			if(self.startmodify!=0):
 				self.stopmodify=time.clock()
 				self.intervalmodify=self.stopmodify-self.startmodify

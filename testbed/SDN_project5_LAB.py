@@ -445,7 +445,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 			
 			NET_PACKET = ip2bin(dst_ip, NETMASK_SDN_NETWORK)
 			if NET_SDN == NET_PACKET:
-			#if dst_ip!='10.79.1.24' and dst_ip!='255.255.255.255' and dst_ip!='224.0.0.251' and dst_ip!='169.254.41.206':
+			#If dst_ip!='10.79.1.24' and dst_ip!='255.255.255.255' and dst_ip!='224.0.0.251' and dst_ip!='169.254.41.206':
 				proto  = str(ip4_pkt.proto)
 				sport = "0"
 				dport = "0" 
@@ -459,11 +459,11 @@ class ZodiacSwitch(app_manager.RyuApp):
 					sport = str(udp_pkt.src_port)
 					dport = str(udp_pkt.dst_port)
 
-			#mpls connection setup
+			#Mpls connection setup
 			scrDst_list = [src, dst] 
 			scrDst_list.sort()
 
-			#verify if connection between the two host is already installed
+			#Verify if connection between the two host is already installed
 			if (hash((scrDst_list[0], scrDst_list[1])) not in self.mpls_conn_list): 
 				self.mpls_conn_list.append(hash((scrDst_list[0], scrDst_list[1])))
 				#self.logger.info(self.mpls_conn_list)		
@@ -472,7 +472,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 				#If not send a BROADCAST ARP REQUEST
 				install_flg = 1
 				try:
-					dpid_dst = self.mac_to_dpid[dst_MAC] #*******************************************
+					dpid_dst = self.mac_to_dpid[dst_MAC] 
 				except:
 					self.logger.info("Destination MAC unknown, sending ARP request...")
 					self.logger.info (dst_MAC)
@@ -504,7 +504,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 					
 					labeldfl = self.assign_label()
 					labelbu = labeldfl+1
-					#store paths in a list, labels are used as index
+					#Store paths in a list, labels are used as index
 					self.dfl_paths[str(labeldfl)] = path_list[0]
 					self.ONdfl_flg[str(new_label)] = 1
 					self.ONbu_flg[str(labelbu)] = 0
@@ -528,7 +528,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 
 		
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath, command, labeldfl, labelbu, onepath, src_MAC, dst_MAC, modify_dfl)
-				
+				        
+				        #Statistics
 						self.timestop = time.clock()
 						interval = self.timestop - self.timestart
 						out_file = open("/home/bonsai/ryu/ryu/app/Project5_time_stats.txt","a")
@@ -537,7 +538,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 						self.timestart = 0
 						self.logger.info("Time for installation: %f" %interval)
 
-						#pkt forwarding
+						#Pkt forwarding
 						outPort = self.net[dpid_src][path_list[0][1]]['port']
 						actions = [parser.OFPActionPushMpls(),
 							parser.OFPActionSetField(mpls_label=labeldfl),
@@ -651,7 +652,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 		if (modify_flg == 1):
 			
 			#For each existing label, control if nodes are involved in a linkdown/linkup msg
-			#If one node is detected, rules are deleted/reinstalled in all nodes of the corresponding dft path
+			#If one node is detected, rules are deleted/reinstalled in all nodes of the corresponding dfl path
 			for label in self.label_dfl_list:
 				if (dpid in self.dfl_paths[str(label)]):
 					if (dpid!=self.dfl_paths[str(label)][0] and dpid!=self.dfl_paths[str(label)][len(self.dfl_paths[str(label)])-1]):
@@ -666,7 +667,8 @@ class ZodiacSwitch(app_manager.RyuApp):
 						#print (self.dpid_to_mac)
 						dst = self.dpid_to_mac[dpid_dst]
 						src = self.dpid_to_mac[dpid_src]
-
+                        
+                        #Statistics
 						if (self.startmodify == 0):
 							self.startmodify = time.clock()
 						
@@ -713,7 +715,7 @@ class ZodiacSwitch(app_manager.RyuApp):
 							self.logger.info("Both dfl and bu paths are not available between switch %d and %d " %(dpid_src, dpid_dst))
 							
 						self.add_mpls_connection(dpid_src, dpid_dst, datapath_src, command, labeldfl, labelbu, onepath, src, dst, modify_dfl)
-
+            #Statistics
 			if (self.startmodify != 0):
 				self.stopmodify = time.clock()
 				interval = self.stopmodify - self.startmodify

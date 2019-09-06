@@ -43,6 +43,39 @@ The user is always notified about all issues.
 
 
 
+## Code implementation
+
+### IPv4 PacketIn
+*#mpls connection setup
+			scrDst_list = [src, dst] 
+			scrDst_list.sort()
+
+			#verify if connection between the two host is already installed
+			if (hash((scrDst_list[0], scrDst_list[1])) not in self.mpls_conn_list): 
+				self.mpls_conn_list.append(hash((scrDst_list[0], scrDst_list[1])))
+				#self.logger.info(self.mpls_conn_list)		
+				
+				#Verify if controller knows the pair dstMAC/dpid
+				#If not send a BROADCAST ARP REQUEST
+				install_flg = 1
+				try:
+					dpid_dst = self.mac_to_dpid[dst_MAC] 
+				except:
+					print("Destination MAC unknown, sending ARP request...")
+					self.mpls_conn_list.remove(hash((scrDst_list[0], scrDst_list[1])))
+					install_flg = 0 
+					opcode = 1
+					dst_MAC = "ff:ff:ff:ff:ff:ff"
+					for po in range(1,len(self.port_occupied[dpid_src])+1):
+							if self.port_occupied[dpid_src][po] == 0:
+							# If the port is occupied
+								outPort = po
+								if outPort != in_port:
+									self.send_arp(datapath, opcode, src_MAC, srcIp, dst_MAC, dst_Ip, outPort)*
+
+
+
+
 
 
 

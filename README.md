@@ -1,7 +1,6 @@
 # Project-5
-In directory *mininet simulator*, there are the source code, two sample topologies and commands to run the simulatiom.
-
->  In directory *testbed*, there are the source code and commands to run the controller and exchange packets between hosts.
+In directory *mininet simulator*, there are the source code, two sample topologies and commands to run the simulatiom.  
+In directory *testbed*, there are the source code and commands to run the controller and exchange packets between hosts.
 
 ## MPLS route management
 Starting from a multipath network with multiple disjoint paths from a source and 

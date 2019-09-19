@@ -367,7 +367,7 @@ Different scenarios can occur:
 
 * PortDown and Datapath belong to a default path: default path is marked as "not active" (`self.ONdfl_flg[str(labeldfl)] = 0`) and rules are deleted from all nodes. Packets will follow the back-up path (if available).
 * PortDown and Datapath belong to a back-up path: back-up path is marked as "not active" (`self.ONbu_flg[str(labelbu)] = 0`) and rules are deleted from all nodes.
-* PortAlive and Datapath belong to a default path: default path is marked as "active" (`self.ONdfl_flg[str(labeldfl)] = 1`) and rules are installed in all nodes. Packets will stop follow the back-up path (if available).
+* PortAlive and Datapath belong to a default path: default path is marked as "active" (`self.ONdfl_flg[str(labeldfl)] = 1`) and rules are installed in all nodes. Packets will stop following the back-up path (if available).
 * PortAlive and Datapath belong to a back-up path: default path is marked as "active" (`self.ONbu_flg[str(labeldfl)] = 1`) and rules are installed in all nodes.
 
 If no path remains available, an error message is reported in the log.

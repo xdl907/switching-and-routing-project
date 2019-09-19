@@ -27,7 +27,7 @@ $  mininet/util/m h1 iperf -c 10.0.0.2 -M 500
 ```
 Open the browser and check rule installation on *http://localhost:8282*
 
-Simulate a link failure in the default MPLS path with
+In the mininet window, simulate a link failure in the default MPLS path with
 ```bash
 >  link s1 s3 down
 ```
